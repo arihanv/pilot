@@ -17,6 +17,12 @@ struct AppView: View {
                 start()
             }
 
+            #if !os(visionOS)
+            if session.isConnected, !chat {
+                DynamicIslandOverlay()
+            }
+            #endif
+
             errors()
         }
         .environment(\.namespace, namespace)
