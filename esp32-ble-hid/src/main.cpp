@@ -1,20 +1,104 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include <BleCombo.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
 
+// --- WiFi credentials (iPhone Personal Hotspot) ---
+const char* WIFI_SSID = "Arihan iPhone";
+const char* WIFI_PASS = "arihanv1";
+
+// --- Modal Sandbox tunnel (plain WebSocket, no SSL) ---
+// Start/check tunnel: uv run server.py --status
+// Then update host/port with the tunnel address it prints
+const char* WS_HOST = "r443.modal.host";
+const uint16_t WS_PORT = 39245;
+const char* WS_PATH = "/ws";
+
+WebSocketsClient webSocket;
 String inputBuffer = "";
+unsigned long lastWifiCheck = 0;
+unsigned long lastHeartbeat = 0;
+bool wsConnected = false;
 
-void handleCommand(String cmd) {
+// Forward declaration
+void handleCommand(String cmd);
+String executeCommand(String cmd);
+
+// --- Send response back via WebSocket ---
+void sendWsResponse(const char* command, const char* response) {
+  if (!wsConnected) return;
+  JsonDocument doc;
+  doc["type"] = "response";
+  doc["command"] = command;
+  doc["response"] = response;
+  String json;
+  serializeJson(doc, json);
+  webSocket.sendTXT(json);
+}
+
+// --- WebSocket event handler ---
+void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
+  switch (type) {
+    case WStype_DISCONNECTED:
+      Serial.println("[WS] Disconnected");
+      wsConnected = false;
+      break;
+
+    case WStype_CONNECTED:
+      Serial.print("[WS] Connected to ");
+      Serial.println((char*)payload);
+      wsConnected = true;
+      break;
+
+    case WStype_TEXT: {
+      String msg = String((char*)payload);
+      JsonDocument doc;
+      DeserializationError err = deserializeJson(doc, msg);
+      if (err) {
+        Serial.print("[WS] JSON parse error: ");
+        Serial.println(err.c_str());
+        break;
+      }
+
+      const char* msgType = doc["type"];
+      if (strcmp(msgType, "command") == 0) {
+        const char* cmd = doc["command"];
+        Serial.print("[WS] Command: ");
+        Serial.println(cmd);
+        String result = executeCommand(String(cmd));
+        sendWsResponse(cmd, result.c_str());
+      }
+      else if (strcmp(msgType, "heartbeat_ack") == 0) {
+        // Server acknowledged heartbeat
+      }
+      break;
+    }
+
+    case WStype_PING:
+      Serial.println("[WS] Ping");
+      break;
+
+    case WStype_PONG:
+      break;
+
+    default:
+      break;
+  }
+}
+
+// --- Execute a command and return response string ---
+String executeCommand(String cmd) {
   cmd.trim();
-  if (cmd.length() == 0) return;
+  if (cmd.length() == 0) return "ERR: empty";
 
-  // Strip any non-printable characters from the start
+  // Strip non-printable characters
   while (cmd.length() > 0 && (cmd.charAt(0) < 32 || cmd.charAt(0) > 126)) {
     cmd = cmd.substring(1);
   }
   cmd.trim();
-  if (cmd.length() == 0) return;
+  if (cmd.length() == 0) return "ERR: empty";
 
-  // Convert command part to uppercase for case-insensitive matching
   String cmdUpper = cmd;
   cmdUpper.toUpperCase();
 
@@ -22,95 +106,99 @@ void handleCommand(String cmd) {
   Serial.println(cmdUpper);
 
   if (cmdUpper == "STATUS") {
-    Serial.print("Connected: ");
-    Serial.println(Keyboard.isConnected() ? "YES" : "NO");
-    return;
+    String s = "BLE: ";
+    s += Keyboard.isConnected() ? "YES" : "NO";
+    s += ", WiFi: ";
+    s += WiFi.isConnected() ? "YES" : "NO";
+    s += ", WS: ";
+    s += wsConnected ? "YES" : "NO";
+    return s;
   }
 
   if (!Keyboard.isConnected()) {
-    Serial.println("ERR: not connected");
-    return;
+    return "ERR: BLE not connected";
   }
 
-  // --- Keyboard commands ---
+  // --- Keyboard ---
   if (cmdUpper.startsWith("TYPE ")) {
-    Keyboard.print(cmd.substring(5));  // preserve original case for typed text
-    Serial.println("OK: typed");
+    Keyboard.print(cmd.substring(5));
+    return "OK: typed";
   }
   else if (cmdUpper.startsWith("KEY ")) {
     Keyboard.write(cmd.charAt(4));
-    Serial.println("OK: key");
+    return "OK: key";
   }
   else if (cmdUpper.startsWith("KEYDOWN ")) {
     Keyboard.press(cmd.charAt(8));
-    Serial.println("OK: key down");
+    return "OK: key down";
   }
   else if (cmdUpper.startsWith("KEYUP ")) {
     Keyboard.release(cmd.charAt(6));
-    Serial.println("OK: key up");
+    return "OK: key up";
   }
   else if (cmdUpper == "RELEASEALL") {
     Keyboard.releaseAll();
-    Serial.println("OK: released all");
+    return "OK: released all";
   }
   else if (cmdUpper == "ENTER") {
     Keyboard.write(KEY_RETURN);
-    Serial.println("OK: enter");
+    return "OK: enter";
   }
   else if (cmdUpper == "BACKSPACE") {
     Keyboard.write(KEY_BACKSPACE);
-    Serial.println("OK: backspace");
+    return "OK: backspace";
   }
   else if (cmdUpper == "TAB") {
     Keyboard.write(KEY_TAB);
-    Serial.println("OK: tab");
+    return "OK: tab";
   }
   else if (cmdUpper == "ESC") {
     Keyboard.write(KEY_ESC);
-    Serial.println("OK: esc");
+    return "OK: esc";
   }
   else if (cmdUpper == "SPACE") {
     Keyboard.write(' ');
-    Serial.println("OK: space");
+    return "OK: space";
   }
   else if (cmdUpper == "UP") {
     Keyboard.write(KEY_UP_ARROW);
-    Serial.println("OK: up");
+    return "OK: up";
   }
   else if (cmdUpper == "DOWN") {
     Keyboard.write(KEY_DOWN_ARROW);
-    Serial.println("OK: down");
+    return "OK: down";
   }
   else if (cmdUpper == "LEFT") {
     Keyboard.write(KEY_LEFT_ARROW);
-    Serial.println("OK: left");
+    return "OK: left";
   }
   else if (cmdUpper == "RIGHT") {
     Keyboard.write(KEY_RIGHT_ARROW);
-    Serial.println("OK: right");
+    return "OK: right";
   }
-  // --- Mouse commands ---
+  // --- Mouse ---
   else if (cmdUpper.startsWith("MOVE ")) {
     int spaceIdx = cmdUpper.indexOf(' ', 5);
     if (spaceIdx > 0) {
       int x = cmdUpper.substring(5, spaceIdx).toInt();
       int y = cmdUpper.substring(spaceIdx + 1).toInt();
       Mouse.move(x, y);
-      Serial.println("OK: moved");
+      return "OK: moved";
     }
+    return "ERR: bad MOVE args";
   }
   else if (cmdUpper == "CLICK") {
     Mouse.click(MOUSE_LEFT);
-    Serial.println("OK: click");
+    return "OK: click";
   }
   else if (cmdUpper == "CLICK_RIGHT") {
     Mouse.click(MOUSE_RIGHT);
-    Serial.println("OK: right click");
+    return "OK: right click";
   }
   else if (cmdUpper.startsWith("SCROLL ")) {
     int amount = cmdUpper.substring(7).toInt();
     Mouse.move(0, 0, amount);
-    Serial.println("OK: scroll");
+    return "OK: scroll";
   }
   else if (cmdUpper.startsWith("SWIPE ")) {
     int params[5];
@@ -137,67 +225,148 @@ void handleCommand(String cmd) {
       delay(15);
     }
     Mouse.release(MOUSE_LEFT);
-    Serial.println("OK: swipe");
+    return "OK: swipe";
   }
-  // --- Media / System ---
+  // --- iOS shortcuts ---
   else if (cmdUpper == "VOL_UP") {
     Keyboard.write(KEY_MEDIA_VOLUME_UP);
-    Serial.println("OK: vol up");
+    return "OK: vol up";
   }
   else if (cmdUpper == "VOL_DOWN") {
     Keyboard.write(KEY_MEDIA_VOLUME_DOWN);
-    Serial.println("OK: vol down");
+    return "OK: vol down";
   }
   else if (cmdUpper == "HOME") {
     Keyboard.press(KEY_LEFT_GUI);
     Keyboard.press('h');
     delay(50);
     Keyboard.releaseAll();
-    Serial.println("OK: home");
+    return "OK: home";
   }
   else if (cmdUpper == "LOCK") {
     Keyboard.press(KEY_LEFT_GUI);
     Keyboard.press('l');
     delay(50);
     Keyboard.releaseAll();
-    Serial.println("OK: lock");
+    return "OK: lock";
   }
   else if (cmdUpper == "APPSWITCHER") {
     Keyboard.press(KEY_LEFT_GUI);
     Keyboard.press(KEY_TAB);
     delay(50);
     Keyboard.releaseAll();
-    Serial.println("OK: app switcher");
+    return "OK: app switcher";
   }
   else if (cmdUpper == "SPOTLIGHT") {
     Keyboard.press(KEY_LEFT_GUI);
     Keyboard.press(' ');
     delay(50);
     Keyboard.releaseAll();
-    Serial.println("OK: spotlight");
+    return "OK: spotlight";
   }
   else {
-    Serial.print("ERR: unknown: ");
-    Serial.println(cmdUpper);
+    return "ERR: unknown: " + cmdUpper;
   }
 }
+
+// --- WiFi connection ---
+void connectWiFi() {
+  if (WiFi.isConnected()) return;
+
+  Serial.print("[WiFi] Connecting to ");
+  Serial.println(WIFI_SSID);
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+  int tries = 0;
+  while (WiFi.status() != WL_CONNECTED && tries < 20) {
+    delay(500);
+    Serial.print(".");
+    tries++;
+  }
+  Serial.println();
+
+  if (WiFi.isConnected()) {
+    Serial.print("[WiFi] Connected! IP: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.print("[WiFi] Failed (status=");
+    Serial.print(WiFi.status());
+    Serial.println("). Retry later...");
+    WiFi.disconnect(true);
+  }
+}
+
+// --- WebSocket connection ---
+void connectWebSocket() {
+  if (strlen(WS_HOST) == 0) {
+    Serial.println("[WS] No host configured. Set WS_HOST and re-flash.");
+    return;
+  }
+
+  Serial.print("[WS] Connecting to ");
+  Serial.print(WS_HOST);
+  Serial.print(":");
+  Serial.print(WS_PORT);
+  Serial.print(WS_PATH);
+  Serial.println();
+
+  webSocket.begin(WS_HOST, WS_PORT, WS_PATH);
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setReconnectInterval(5000);
+}
+
+bool wsStarted = false;
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("ESP32 BLE HID starting...");
+  Serial.println("\n=== Sotos ESP32 Controller ===");
+
+  // Start BLE HID first (priority)
+  Serial.println("[BLE] Starting...");
   Keyboard.deviceName = "sotos";
   Keyboard.begin();
-  Serial.println("Ready! BLE advertising as 'sotos'");
-  Serial.println("On iPhone: Settings > Bluetooth > tap 'sotos'");
-  Serial.println("Then: Settings > Accessibility > Touch > AssistiveTouch > ON");
+  Serial.println("[BLE] Advertising as 'sotos'");
+
+  // Init WiFi mode but don't connect yet (let BLE advertise first)
+  WiFi.mode(WIFI_STA);
+
+  Serial.println("[Ready] Pair iPhone to 'sotos' via Bluetooth");
+  Serial.println("[Ready] WiFi will start after 10 seconds");
 }
 
 void loop() {
+  // Handle WebSocket (non-blocking)
+  if (wsStarted) {
+    webSocket.loop();
+  }
+
+  // Send heartbeat every 15s
+  if (wsConnected && millis() - lastHeartbeat > 15000) {
+    lastHeartbeat = millis();
+    webSocket.sendTXT("{\"type\":\"heartbeat\"}");
+  }
+
+  // Attempt WiFi/WS after 10s (give BLE time to advertise first)
+  if (millis() > 10000 && millis() - lastWifiCheck > 5000) {
+    lastWifiCheck = millis();
+    if (!WiFi.isConnected()) {
+      connectWiFi();
+    }
+    if (WiFi.isConnected() && !wsStarted && strlen(WS_HOST) > 0) {
+      connectWebSocket();
+      wsStarted = true;
+    }
+  }
+
+  // Serial commands still work (for local debugging)
   while (Serial.available()) {
     char c = Serial.read();
     if (c == '\n' || c == '\r') {
       if (inputBuffer.length() > 0) {
-        handleCommand(inputBuffer);
+        String result = executeCommand(inputBuffer);
+        Serial.println(result);
         inputBuffer = "";
       }
     } else {
@@ -205,11 +374,14 @@ void loop() {
     }
   }
 
-  static unsigned long lastCheck = 0;
-  if (millis() - lastCheck > 10000) {
-    lastCheck = millis();
+  // Periodic status
+  static unsigned long lastBleCheck = 0;
+  if (millis() - lastBleCheck > 10000) {
+    lastBleCheck = millis();
     if (!Keyboard.isConnected()) {
-      Serial.println("Waiting for BLE connection...");
+      Serial.println("[BLE] Waiting for connection...");
+    } else if (!WiFi.isConnected()) {
+      Serial.println("[BLE] Connected. [WiFi] Waiting for hotspot...");
     }
   }
 }
