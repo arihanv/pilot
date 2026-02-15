@@ -88,7 +88,7 @@ struct ContentView: View {
                 }
 
                 // Connected device indicator
-                if let device = manager.deviceDetector.detectedDevice {
+                if let device = manager.connectedDevice {
                     HStack(spacing: 6) {
                         Circle().fill(.green).frame(width: 8, height: 8)
                         Text(device)
@@ -168,7 +168,7 @@ struct BroadcastButton: View {
             HStack(spacing: 8) {
                 Image(systemName: isBroadcastActive
                       ? "record.circle.fill"
-                      : "screenrecording")
+                      : "dot.radiowaves.left.and.right")
                 Text(isBroadcastActive
                      ? "Screen Broadcast Active"
                      : "Start Screen Broadcast")

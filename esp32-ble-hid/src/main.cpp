@@ -351,7 +351,7 @@ void setup() {
 
   // Start BLE HID first (priority)
   Serial.println("[BLE] Starting...");
-  Keyboard.deviceName = "sotos-james";
+  Keyboard.deviceName = "sotos-ethan";
   Keyboard.begin();
   Serial.println("[BLE] Advertising as 'sotos-arihan'");
 

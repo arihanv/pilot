@@ -17,6 +17,7 @@ class SpeechManager {
     private var lastDeliveredText: String = ""
     private var lastDeliveredAt: Date = .distantPast
     private var audioSessionConfigured = false
+    private var tapBufferCounter: Int = 0
 
     func requestPermissions() async -> Bool {
         let speechStatus = await withCheckedContinuation { continuation in
@@ -25,6 +26,7 @@ class SpeechManager {
             }
         }
         let micStatus = await AVAudioApplication.requestRecordPermission()
+        print("[Speech] Permission status - speech: \(speechStatus.rawValue), mic: \(micStatus)")
         return speechStatus == .authorized && micStatus
     }
 
@@ -36,8 +38,8 @@ class SpeechManager {
         do {
             try session.setCategory(
                 .playAndRecord,
-                mode: .voiceChat,
-                options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers]
+                mode: .measurement,
+                options: [.defaultToSpeaker, .allowBluetooth]
             )
         } catch {
             print("[Speech] Audio setCategory failed: \(error)")
@@ -65,11 +67,6 @@ class SpeechManager {
         let player = AVAudioPlayerNode()
 
         engine.attach(player)
-
-        let inputNode = engine.inputNode
-        if !inputNode.isVoiceProcessingEnabled {
-            try inputNode.setVoiceProcessingEnabled(true)
-        }
 
         engine.connect(player, to: engine.mainMixerNode, format: nil)
 
@@ -173,9 +170,26 @@ class SpeechManager {
 
             let recordingFormat = inputNode.outputFormat(forBus: 0)
             print("[Speech] Recording format: \(recordingFormat)")
+            tapBufferCounter = 0
 
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
                 request.append(buffer)
+                self.tapBufferCounter += 1
+                if self.tapBufferCounter % 60 == 0 {
+                    if let channelData = buffer.floatChannelData {
+                        let frameLength = Int(buffer.frameLength)
+                        if frameLength > 0 {
+                            let samples = channelData[0]
+                            var sum: Float = 0
+                            for i in 0..<frameLength {
+                                let s = samples[i]
+                                sum += s * s
+                            }
+                            let rms = sqrt(sum / Float(frameLength))
+                            print(String(format: "[Speech] Mic RMS: %.5f", rms))
+                        }
+                    }
+                }
             }
 
             isListening = true
@@ -192,6 +206,7 @@ class SpeechManager {
                         let text = result.bestTranscription.formattedString
                         self.transcribedText = text
                         self.resetSilenceTimer()
+                        print("[Speech] Partial: \(text.prefix(50))...")
 
                         if result.isFinal {
                             print("[Speech] Final result: \(text.prefix(50))...")

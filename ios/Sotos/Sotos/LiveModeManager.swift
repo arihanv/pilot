@@ -17,13 +17,14 @@ class LiveModeManager {
 
     /// Whether the broadcast extension is currently streaming the device screen.
     var isBroadcastActive: Bool { screenCapture.isBroadcastActive }
+    /// Current detected target device for phone commands.
+    var connectedDevice: String? { deviceDetector.detectedDevice }
 
     private let speechManager = SpeechManager()
     private let openRouter: OpenRouterService
     private let screenCapture = ScreenCaptureManager()
     private let deviceDetector = DeviceDetector()
     #if canImport(ActivityKit)
-    private let liveActivity = LiveActivityManager()
     #endif
     private var requestId = 0
 
