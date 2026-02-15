@@ -30,6 +30,34 @@ class LiveModeManager {
         openRouter = OpenRouterService(apiKey: apiKey)
     }
 
+    // MARK: - Phone Control (via WiFi relay)
+
+    private let phoneBaseURL = "https://claire.ariv.sh"
+
+    /// Send commands to ESP32 via the WiFi relay server.
+    func sendPhoneCommands(_ commands: [String], delay: Double = 0) {
+        print("[Phone] Sending commands: \(commands) to \(phoneBaseURL)/commands")
+        Task {
+            do {
+                let url = URL(string: "\(phoneBaseURL)/commands")!
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                let body: [String: Any] = ["commands": commands, "delay": delay]
+                request.httpBody = try JSONSerialization.data(withJSONObject: body)
+                print("[Phone] Request ready, sending...")
+
+                let (data, response) = try await URLSession.shared.data(for: request)
+                let httpResponse = response as? HTTPURLResponse
+                print("[Phone] HTTP \(httpResponse?.statusCode ?? -1)")
+                let bodyStr = String(data: data, encoding: .utf8) ?? "nil"
+                print("[Phone] Body: \(bodyStr)")
+            } catch {
+                print("[Phone] Error: \(error)")
+            }
+        }
+    }
+
     // MARK: - Start / Stop
 
     func startLiveMode() async {

@@ -1,3 +1,6 @@
-ios/agent-starter-swift/VoiceAgent/VoiceAgent.entitlements
-ios/agent-starter-swift/BroadcastExtension/BroadcastExtension.entitlements
-ios/agent-starter-swift/VoiceAgent.xcodeproj/project.pbxproj
+ios/Sotos/VoiceAgent/VoiceAgent.entitlements
+ios/Sotos/BroadcastExtension/BroadcastExtension.entitlements
+ios/Sotos/VoiceAgent.xcodeproj/project.pbxproj
+.env
+ios/Sotos/BroadcastExtension/BroadcastExtension.entitlements
+ios/Sotos/Sotos/Sotos.entitlements
