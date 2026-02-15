@@ -5,13 +5,15 @@
 #include <ArduinoJson.h>
 
 // --- WiFi credentials (iPhone Personal Hotspot) ---
+// const char* WIFI_SSID = "Arihan iPhone";
 const char* WIFI_SSID = "Arihan iPhone";
+// const char* WIFI_PASS = "arihanv1";
 const char* WIFI_PASS = "arihanv1";
 
 // --- Cloudflare tunnel (plain HTTP/WS on port 80) ---
 // Dev: run server locally + cloudflared tunnel --url http://localhost:8000
 // Named tunnel: cloudflared tunnel run --url http://localhost:8000 general
-const char* WS_HOST = "alias-showed-mason-atlas.trycloudflare.com";
+const char* WS_HOST = "claire.ariv.sh";
 const uint16_t WS_PORT = 80;
 const char* WS_PATH = "/ws";
 const bool WS_USE_SSL = false;
@@ -21,8 +23,16 @@ String inputBuffer = "";
 unsigned long lastWifiCheck = 0;
 unsigned long lastHeartbeat = 0;
 bool wsConnected = false;
-// Digitizer absolute coordinate range: 0 – 32767
-const uint16_t DIGI_MAX = 32767;
+const int LOGICAL_SCREEN_WIDTH = 402;
+const int LOGICAL_SCREEN_HEIGHT = 874;
+const int ABS_HOME_SWEEPS = 120;
+const int ABS_HOME_DELAY_MS = 12;
+const int ABS_STEP_SIZE = 3;
+const int ABS_STEP_DELAY_MS = 12;
+// Scale factor: compensates for iOS pointer deceleration at low HID speeds.
+// If cursor falls short of the target edge, increase this value.
+// If cursor overshoots past the edge, decrease it.
+const float ABS_MOVEMENT_SCALE = 4.0f;
 
 // Forward declaration
 void handleCommand(String cmd);
@@ -40,9 +50,43 @@ bool parsePercentToken(String token, float& outPercent) {
   return true;
 }
 
-// Convert percentage (0-100) to digitizer coordinate (0-32767)
-uint16_t percentToDigitizer(float pct) {
-  return (uint16_t)(pct * DIGI_MAX / 100.0f + 0.5f);
+void resetCursorToTopLeft() {
+  // Strong "homing" sweep so each absolute command starts from same anchor.
+  // Larger count + slower cadence reduces iOS pointer acceleration variance.
+  for (int i = 0; i < ABS_HOME_SWEEPS; i++) {
+    Mouse.move(-127, -127);
+    delay(ABS_HOME_DELAY_MS);
+  }
+  delay(40);
+}
+
+void moveCursorToAbsolute(int targetX, int targetY) {
+  targetX = constrain(targetX, 0, LOGICAL_SCREEN_WIDTH);
+  targetY = constrain(targetY, 0, LOGICAL_SCREEN_HEIGHT);
+
+  resetCursorToTopLeft();
+
+  // Scale up HID units to compensate for iOS pointer deceleration.
+  int hidX = (int)(targetX * ABS_MOVEMENT_SCALE + 0.5f);
+  int hidY = (int)(targetY * ABS_MOVEMENT_SCALE + 0.5f);
+
+  // Move X axis first in fixed steps — single-axis keeps velocity constant
+  // so iOS acceleration multiplier is identical every run.
+  while (hidX > 0) {
+    int dx = (hidX > ABS_STEP_SIZE) ? ABS_STEP_SIZE : hidX;
+    Mouse.move(dx, 0);
+    hidX -= dx;
+    delay(ABS_STEP_DELAY_MS);
+  }
+
+  // Then move Y axis in fixed steps.
+  while (hidY > 0) {
+    int dy = (hidY > ABS_STEP_SIZE) ? ABS_STEP_SIZE : hidY;
+    Mouse.move(0, dy);
+    hidY -= dy;
+    delay(ABS_STEP_DELAY_MS);
+  }
+  delay(25);
 }
 
 // --- Send response back via WebSocket ---
@@ -69,13 +113,18 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       Serial.print("[WS] Connected to ");
       Serial.println((char*)payload);
       wsConnected = true;
+
+      // Small delay before registering to ensure server is ready
+      delay(200);
+
       // Identify ourselves to the server
       JsonDocument reg;
       reg["type"] = "register";
-      reg["name"] = Keyboard.deviceName;
+      reg["name"] = "sotos-mini";
       String regJson;
       serializeJson(reg, regJson);
       webSocket.sendTXT(regJson);
+      Serial.println("[WS] Registered as 'sotos-mini'");
       break;
     }
 
@@ -232,7 +281,7 @@ String executeCommand(String cmd) {
     Mouse.click(MOUSE_LEFT);
     return "OK: click";
   }
-  // --- Absolute move by percentage via digitizer (e.g. MOVE_ABS 50% 50%) ---
+  // --- Absolute move/tap by percentage (e.g. MOVE_ABS 50% 50%) ---
   else if (cmdUpper.startsWith("MOVE_ABS ")) {
     int spaceIdx = cmdUpper.indexOf(' ', 9);
     if (spaceIdx > 0) {
@@ -244,23 +293,22 @@ String executeCommand(String cmd) {
         return "ERR: bad MOVE_ABS args (need MOVE_ABS x% y%, 0-100%)";
       }
 
-      uint16_t dx = percentToDigitizer(xPercent);
-      uint16_t dy = percentToDigitizer(yPercent);
-      Mouse.moveAbsolute(dx, dy);
+      int targetX = (int)((xPercent * LOGICAL_SCREEN_WIDTH / 100.0f) + 0.5f);
+      int targetY = (int)((yPercent * LOGICAL_SCREEN_HEIGHT / 100.0f) + 0.5f);
+      moveCursorToAbsolute(targetX, targetY);
 
       String resp = "OK: move_abs ";
       resp += xToken;
       resp += ",";
       resp += yToken;
-      resp += " => digi ";
-      resp += dx;
+      resp += " => ";
+      resp += targetX;
       resp += ",";
-      resp += dy;
+      resp += targetY;
       return resp;
     }
     return "ERR: bad MOVE_ABS args (need MOVE_ABS x% y%)";
   }
-  // --- Absolute tap by percentage via digitizer (e.g. TAP_ABS 50% 50%) ---
   else if (cmdUpper.startsWith("TAP_ABS ")) {
     int spaceIdx = cmdUpper.indexOf(' ', 8);
     if (spaceIdx > 0) {
@@ -272,41 +320,33 @@ String executeCommand(String cmd) {
         return "ERR: bad TAP_ABS args (need TAP_ABS x% y%, 0-100%)";
       }
 
-      uint16_t dx = percentToDigitizer(xPercent);
-      uint16_t dy = percentToDigitizer(yPercent);
-      Mouse.clickAbsolute(dx, dy);
+      int targetX = (int)((xPercent * LOGICAL_SCREEN_WIDTH / 100.0f) + 0.5f);
+      int targetY = (int)((yPercent * LOGICAL_SCREEN_HEIGHT / 100.0f) + 0.5f);
+      moveCursorToAbsolute(targetX, targetY);
+      Mouse.click(MOUSE_LEFT);
 
       String resp = "OK: tap_abs ";
       resp += xToken;
       resp += ",";
       resp += yToken;
-      resp += " => digi ";
-      resp += dx;
+      resp += " => ";
+      resp += targetX;
       resp += ",";
-      resp += dy;
+      resp += targetY;
       return resp;
     }
     return "ERR: bad TAP_ABS args (need TAP_ABS x% y%)";
   }
-  // --- Legacy pixel TAP (still uses relative mouse for backward compat) ---
+  // --- Absolute tap: reset cursor to (0,0) then move to target and click ---
   else if (cmdUpper.startsWith("TAP ")) {
     int spaceIdx = cmdUpper.indexOf(' ', 4);
     if (spaceIdx > 0) {
       int targetX = cmdUpper.substring(4, spaceIdx).toInt();
       int targetY = cmdUpper.substring(spaceIdx + 1).toInt();
 
-      // Best-effort relative move (not pixel-perfect)
-      for (int i = 0; i < 30; i++) { Mouse.move(-127, -127); delay(2); }
-      delay(10);
-      int rx = targetX, ry = targetY;
-      while (rx > 0 || ry > 0) {
-        int ddx = (rx > 127) ? 127 : rx;
-        int ddy = (ry > 127) ? 127 : ry;
-        Mouse.move(ddx, ddy);
-        rx -= ddx; ry -= ddy;
-        delay(2);
-      }
-      delay(15);
+      moveCursorToAbsolute(targetX, targetY);
+
+      // Click
       Mouse.click(MOUSE_LEFT);
 
       String resp = "OK: tap ";
@@ -316,6 +356,38 @@ String executeCommand(String cmd) {
       return resp;
     }
     return "ERR: bad TAP args (need TAP x y)";
+  }
+  else if (cmdUpper.startsWith("CLICK_AT ")) {
+    // CLICK_AT x y — raw HID units (server does pixel-to-HID conversion)
+    int spaceIdx = cmdUpper.indexOf(' ', 9);
+    if (spaceIdx > 0) {
+      int tx = cmdUpper.substring(9, spaceIdx).toInt();
+      int ty = cmdUpper.substring(spaceIdx + 1).toInt();
+      // Slam to top-left corner
+      for (int i = 0; i < 30; i++) { Mouse.move(-127, -127); delay(3); }
+      delay(30);
+      // Move proportionally so both axes finish together
+      const int step = 10;
+      int maxDist = max(tx, ty);
+      int totalSteps = (maxDist + step - 1) / step;
+      int cx = 0, cy = 0;
+      for (int i = 1; i <= totalSteps; i++) {
+        int targetX = (int)((long)tx * i / totalSteps);
+        int targetY = (int)((long)ty * i / totalSteps);
+        int dx = targetX - cx;
+        int dy = targetY - cy;
+        cx = targetX;
+        cy = targetY;
+        if (dx != 0 || dy != 0) {
+          Mouse.move(dx, dy);
+        }
+        delay(4);
+      }
+      delay(30);
+      Mouse.click(MOUSE_LEFT);
+      return "OK: click_at hid=" + String(tx) + "," + String(ty);
+    }
+    return "ERR: bad CLICK_AT args (use: CLICK_AT x y)";
   }
   else if (cmdUpper == "CLICK_RIGHT") {
     Mouse.click(MOUSE_RIGHT);
@@ -455,9 +527,9 @@ void setup() {
 
   // Start BLE HID first (priority)
   Serial.println("[BLE] Starting...");
-  Keyboard.deviceName = "sotos-james";
+  Keyboard.deviceName = "sotos-mini";
   Keyboard.begin();
-  Serial.println("[BLE] Advertising as 'sotos-james'");
+  Serial.println("[BLE] Advertising as 'sotos-mini'");
 
   // Init WiFi mode but don't connect yet (let BLE advertise first)
   WiFi.mode(WIFI_STA);
