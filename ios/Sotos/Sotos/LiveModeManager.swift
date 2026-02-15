@@ -131,10 +131,12 @@ class LiveModeManager {
                 case .text(let responseText):
                     showResponse(responseText)
 
-                case .toolCall(let id, let name):
+                case .toolCall(let id, let name, let arguments):
                     print("[LiveMode] Tool call requested: \(name)")
                     if name == "get_screenshot" {
                         await handleScreenshotTool(toolCallId: id, requestId: myId)
+                    } else if name == "send_phone_commands" {
+                        await handlePhoneCommandsTool(toolCallId: id, arguments: arguments, requestId: myId)
                     }
                 }
             } catch {
@@ -167,6 +169,41 @@ class LiveModeManager {
             )
             guard self.requestId == myId else { return }
             showResponse(response)
+        } catch {
+            guard self.requestId == myId else { return }
+            showError(error)
+        }
+    }
+
+    private func handlePhoneCommandsTool(toolCallId: String, arguments: [String: Any], requestId myId: Int) async {
+        guard let commands = arguments["commands"] as? [String], !commands.isEmpty else {
+            showResponse("No commands provided.")
+            return
+        }
+        let delay = arguments["delay"] as? Double ?? 0
+
+        print("[LiveMode] Executing phone commands: \(commands), delay: \(delay)")
+        sendPhoneCommands(commands, delay: delay)
+
+        // Send tool result back to LLM so it can confirm the action
+        do {
+            let response = try await openRouter.sendToolResult(
+                toolCallId: toolCallId,
+                result: "Commands sent successfully: \(commands.joined(separator: ", "))"
+            )
+            guard self.requestId == myId else { return }
+
+            switch response {
+            case .text(let text):
+                showResponse(text)
+            case .toolCall(let id, let name, let args):
+                // Handle chained tool calls
+                if name == "get_screenshot" {
+                    await handleScreenshotTool(toolCallId: id, requestId: myId)
+                } else if name == "send_phone_commands" {
+                    await handlePhoneCommandsTool(toolCallId: id, arguments: args, requestId: myId)
+                }
+            }
         } catch {
             guard self.requestId == myId else { return }
             showError(error)

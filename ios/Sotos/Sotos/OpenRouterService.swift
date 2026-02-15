@@ -22,6 +22,39 @@ class OpenRouterService {
                     "required": [] as [String]
                 ] as [String: Any]
             ] as [String: Any]
+        ],
+        [
+            "type": "function",
+            "function": [
+                "name": "send_phone_commands",
+                "description": """
+                Send HID commands to control the user's iPhone via an ESP32 BLE device. \
+                Commands are executed sequentially. Use this to type text, press keys, \
+                navigate the phone, tap/swipe, scroll, and use iOS shortcuts. \
+                Available commands: \
+                Keyboard: TYPE <text>, KEY <char>, KEYDOWN <char>, KEYUP <char>, RELEASEALL, \
+                ENTER, BACKSPACE, TAB, ESC, SPACE, UP, DOWN, LEFT, RIGHT. \
+                Mouse: MOVE <x> <y>, CLICK, CLICK_RIGHT, SCROLL <amount>, \
+                SWIPE <x1> <y1> <x2> <y2> <steps>. \
+                iOS shortcuts: VOL_UP, VOL_DOWN, HOME, LOCK, APPSWITCHER, SPOTLIGHT. \
+                Example: to open Messages, send ["HOME", "SPOTLIGHT", "TYPE Messages", "ENTER"].
+                """,
+                "parameters": [
+                    "type": "object",
+                    "properties": [
+                        "commands": [
+                            "type": "array",
+                            "items": ["type": "string"] as [String: Any],
+                            "description": "Array of command strings to execute sequentially on the phone."
+                        ] as [String: Any],
+                        "delay": [
+                            "type": "number",
+                            "description": "Delay in seconds between commands. Defaults to 0."
+                        ] as [String: Any]
+                    ] as [String: Any],
+                    "required": ["commands"] as [String]
+                ] as [String: Any]
+            ] as [String: Any]
         ]
     ]
 
@@ -29,7 +62,7 @@ class OpenRouterService {
 
     enum ChatResponse {
         case text(String)
-        case toolCall(id: String, name: String)
+        case toolCall(id: String, name: String, arguments: [String: Any])
     }
 
     // MARK: - Init
@@ -77,10 +110,21 @@ class OpenRouterService {
         switch response {
         case .text(let text):
             return text
-        case .toolCall:
+        case .toolCall(_, _, _):
             // Shouldn't happen right after a screenshot, but handle gracefully
             return "I captured your screen but couldn't process it. Please try again."
         }
+    }
+
+    /// Complete a generic tool call by providing a text result.
+    /// Returns the model's follow-up response.
+    func sendToolResult(toolCallId: String, result: String) async throws -> ChatResponse {
+        conversationHistory.append([
+            "role": "tool",
+            "tool_call_id": toolCallId,
+            "content": result
+        ])
+        return try await callAPI()
     }
 
     func clearHistory() {
@@ -94,11 +138,15 @@ class OpenRouterService {
         let systemMessage: [String: Any] = [
             "role": "system",
             "content": """
-            You are a helpful screen-sharing assistant displayed in an iPhone's Dynamic Island. \
+            You are a helpful voice assistant displayed in an iPhone's Dynamic Island. \
             Keep responses very concise (1-2 sentences max). Be direct and helpful. \
-            You can see the user's screen using the get_screenshot tool. \
-            When the user asks about what's on their screen, what they're looking at, \
-            or needs visual help, use the get_screenshot tool.
+            You can see the user's screen using the get_screenshot tool, and you can \
+            control the user's iPhone using the send_phone_commands tool. \
+            When the user asks you to open apps, type text, navigate, scroll, swipe, \
+            or perform any action on their phone, use send_phone_commands. \
+            You can chain multiple commands in one call for complex actions. \
+            For example, to open an app: ["HOME", "SPOTLIGHT", "TYPE AppName", "ENTER"]. \
+            After executing commands, briefly confirm what you did.
             """
         ]
 
@@ -156,6 +204,14 @@ class OpenRouterService {
 
             print("[OpenRouter] Tool call: \(name) (id: \(id))")
 
+            // Parse arguments JSON string
+            var args: [String: Any] = [:]
+            if let argsString = function["arguments"] as? String,
+               let argsData = argsString.data(using: .utf8),
+               let parsed = try? JSONSerialization.jsonObject(with: argsData) as? [String: Any] {
+                args = parsed
+            }
+
             // Record the assistant's tool-call message in history
             var assistantMsg: [String: Any] = ["role": "assistant", "tool_calls": toolCalls]
             if let content = message["content"] as? String {
@@ -163,7 +219,7 @@ class OpenRouterService {
             }
             conversationHistory.append(assistantMsg)
 
-            return .toolCall(id: id, name: name)
+            return .toolCall(id: id, name: name, arguments: args)
         }
 
         // ── Regular text response ──
