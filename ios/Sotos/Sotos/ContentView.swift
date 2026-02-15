@@ -87,6 +87,16 @@ struct ContentView: View {
                         .padding(.horizontal)
                 }
 
+                // Connected device indicator
+                if let device = manager.deviceDetector.detectedDevice {
+                    HStack(spacing: 6) {
+                        Circle().fill(.green).frame(width: 8, height: 8)
+                        Text(device)
+                            .font(.caption.monospaced())
+                    }
+                    .foregroundStyle(.secondary)
+                }
+
                 // Phone actions
                 Button {
                     manager.sendPhoneCommands([

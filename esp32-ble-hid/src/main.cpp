@@ -46,11 +46,19 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       wsConnected = false;
       break;
 
-    case WStype_CONNECTED:
+    case WStype_CONNECTED: {
       Serial.print("[WS] Connected to ");
       Serial.println((char*)payload);
       wsConnected = true;
+      // Identify ourselves to the server
+      JsonDocument reg;
+      reg["type"] = "register";
+      reg["name"] = Keyboard.deviceName;
+      String regJson;
+      serializeJson(reg, regJson);
+      webSocket.sendTXT(regJson);
       break;
+    }
 
     case WStype_TEXT: {
       String msg = String((char*)payload);
@@ -343,7 +351,7 @@ void setup() {
 
   // Start BLE HID first (priority)
   Serial.println("[BLE] Starting...");
-  Keyboard.deviceName = "sotos-arihan";
+  Keyboard.deviceName = "sotos-james";
   Keyboard.begin();
   Serial.println("[BLE] Advertising as 'sotos-arihan'");
 

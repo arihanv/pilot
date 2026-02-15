@@ -21,6 +21,10 @@ class LiveModeManager {
     private let speechManager = SpeechManager()
     private let openRouter: OpenRouterService
     private let screenCapture = ScreenCaptureManager()
+    private let deviceDetector = DeviceDetector()
+    #if canImport(ActivityKit)
+    private let liveActivity = LiveActivityManager()
+    #endif
     private var requestId = 0
 
     // Cartesia TTS
@@ -45,7 +49,11 @@ class LiveModeManager {
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                let body: [String: Any] = ["commands": commands, "delay": delay]
+                var body: [String: Any] = ["commands": commands, "delay": delay]
+                if let device = deviceDetector.detectedDevice {
+                    body["device"] = device
+                    print("[Phone] Targeting device: \(device)")
+                }
                 request.httpBody = try JSONSerialization.data(withJSONObject: body)
                 print("[Phone] Request ready, sending...")
 
