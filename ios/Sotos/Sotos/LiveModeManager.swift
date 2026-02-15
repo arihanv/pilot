@@ -61,6 +61,10 @@ class LiveModeManager {
     private let cartesiaVoiceId = "e8e5fffb-252c-436d-b842-8879b84445b6"
     private let cartesiaModelId = "sonic-3"
 
+    private func elapsed(_ start: Date) -> String {
+        String(format: "%.2fs", Date().timeIntervalSince(start))
+    }
+
     init(apiKey: String) {
         openRouter = OpenRouterService(apiKey: apiKey)
         // Clear any stale broadcast flag from a previous session
@@ -73,6 +77,7 @@ class LiveModeManager {
 
     /// Send commands to ESP32 via the WiFi relay server. Awaits completion.
     private func sendPhoneCommands(_ commands: [String], delay: Double = 0) async {
+        let sendStart = Date()
         print("[Phone] Commands: \(commands)")
         do {
             let url = URL(string: "\(phoneBaseURL)/commands")!
@@ -88,9 +93,9 @@ class LiveModeManager {
             let (data, response) = try await URLSession.shared.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? -1
             let bodyStr = String(data: data, encoding: .utf8) ?? ""
-            print("[Phone] HTTP \(status): \(bodyStr.prefix(100))")
+            print("[Phone] HTTP \(status) in \(elapsed(sendStart)): \(bodyStr.prefix(100))")
         } catch {
-            print("[Phone] Error: \(error)")
+            print("[Phone] Error after \(elapsed(sendStart)): \(error)")
         }
     }
 
@@ -186,10 +191,14 @@ class LiveModeManager {
     /// Main CUA loop: sends user message, then keeps executing tool calls until
     /// the model responds with plain text (the final answer).
     private func runCUALoop(userMessage: String, requestId myId: Int) async {
+        let loopStart = Date()
+        var lastCheckpoint = loopStart
         print("[CUA] === Starting CUA loop (reqId=\(myId)) for: \"\(userMessage)\" ===")
         do {
             cuaStep = 0
             var response = try await openRouter.sendMessage(userMessage)
+            print("[Timing][CUA] Initial LLM response in \(elapsed(lastCheckpoint)) (total \(elapsed(loopStart)))")
+            lastCheckpoint = Date()
 
             while true {
                 guard self.requestId == myId else { return }
@@ -197,16 +206,20 @@ class LiveModeManager {
                 switch response {
                 case .text(let text):
                     cuaStatus = ""
+                    print("[Timing][CUA] Final text returned after \(elapsed(lastCheckpoint)) (total \(elapsed(loopStart)))")
                     showResponse(text)
                     return
 
                 case .toolCall(let id, let name, let args):
                     cuaStep += 1
                     print("[CUA] Step \(cuaStep): \(name) args=\(args)")
+                    print("[Timing][CUA] Step \(cuaStep) started after \(elapsed(lastCheckpoint)) (total \(elapsed(loopStart)))")
                     cuaStatus = statusLabel(tool: name, args: args)
 
+                    let toolStart = Date()
                     let result = await executeTool(name: name, args: args)
                     guard self.requestId == myId else { return }
+                    print("[Timing][CUA] Step \(cuaStep) tool '\(name)' executed in \(elapsed(toolStart))")
 
                     switch result {
                     case .text(let t):
@@ -219,6 +232,8 @@ class LiveModeManager {
                         toolCallId: id,
                         content: result
                     )
+                    print("[Timing][CUA] Step \(cuaStep) next LLM response in \(elapsed(lastCheckpoint)) (total \(elapsed(loopStart)))")
+                    lastCheckpoint = Date()
                 }
             }
         } catch {
@@ -245,6 +260,8 @@ class LiveModeManager {
     // MARK: get_screenshot
 
     private func toolGetScreenshot(_ args: [String: Any]) async -> OpenRouterService.ToolResultContent {
+        let toolStart = Date()
+        defer { print("[Timing][CUA] get_screenshot total \(elapsed(toolStart))") }
         guard screenCapture.isBroadcastActive else {
             return .text("ERROR: Screen broadcast is not active. Ask the user to start the broadcast first.")
         }
@@ -259,7 +276,9 @@ class LiveModeManager {
         let detectPrompt = args["detect"] as? String ?? "all interactive elements"
 
         do {
+            let detectStart = Date()
             let elements = try await moondream.detect(imageData: screenshotData, prompt: detectPrompt)
+            print("[Timing][CUA] Moondream detect in \(elapsed(detectStart))")
             lastElements = elements
             lastScreenshotData = screenshotData
 

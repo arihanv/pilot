@@ -30,9 +30,14 @@ class MoondreamService {
         print("[Moondream] Initialized")
     }
 
+    private func elapsed(_ start: Date) -> String {
+        String(format: "%.2fs", Date().timeIntervalSince(start))
+    }
+
     /// Detect objects in an image matching the given prompt.
     /// Returns normalized bounding boxes (0–1) wrapped in DetectedElement.
     func detect(imageData: Data, prompt: String) async throws -> [DetectedElement] {
+        let detectStart = Date()
         let base64 = imageData.base64EncodedString()
 
         var request = URLRequest(url: endpoint)
@@ -48,7 +53,9 @@ class MoondreamService {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         print("[Moondream] Detecting: \"\(prompt)\"")
+        let networkStart = Date()
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("[Moondream][Timing] Network \(elapsed(networkStart))")
 
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let status = (response as? HTTPURLResponse)?.statusCode ?? -1
@@ -71,7 +78,7 @@ class MoondreamService {
             )
         }
 
-        print("[Moondream] Found \(elements.count) elements")
+        print("[Moondream] Found \(elements.count) elements in \(elapsed(detectStart))")
         return elements
     }
 

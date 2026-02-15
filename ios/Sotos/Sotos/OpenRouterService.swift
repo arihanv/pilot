@@ -6,6 +6,7 @@ class OpenRouterService {
     private let model = "google/gemini-3-flash-preview"
     private let endpoint = URL(string: "https://openrouter.ai/api/v1/chat/completions")!
     private let maxConversationMessages = 40
+    private var outboundMessageCount = 0
 
     /// Conversation history — [String: Any] to support multimodal & tool messages.
     private var conversationHistory: [[String: Any]] = []
@@ -142,7 +143,7 @@ class OpenRouterService {
 
     /// Send a user text message.
     func sendMessage(_ text: String) async throws -> ChatResponse {
-        print("[OpenRouter] User: \"\(text.prefix(80))\"")
+        logOutboundMessage(role: "user", details: "\"\(text.prefix(80))\"")
         conversationHistory.append(["role": "user", "content": text])
         trimConversationHistory()
         return try await callAPI()
@@ -152,6 +153,7 @@ class OpenRouterService {
     func sendToolResult(toolCallId: String, content: ToolResultContent) async throws -> ChatResponse {
         switch content {
         case .text(let text):
+            logOutboundMessage(role: "tool", details: "tool_call_id=\(toolCallId), text=\"\(text.prefix(80))\"")
             conversationHistory.append([
                 "role": "tool",
                 "tool_call_id": toolCallId,
@@ -162,11 +164,13 @@ class OpenRouterService {
             // Strip old images to keep payload size manageable
             stripOldImages()
 
+            logOutboundMessage(role: "tool", details: "tool_call_id=\(toolCallId), text+image (\(imageBase64.count) b64 chars)")
             conversationHistory.append([
                 "role": "tool",
                 "tool_call_id": toolCallId,
                 "content": text
             ])
+            logOutboundMessage(role: "user", details: "annotated screenshot payload (\(imageBase64.count) b64 chars)")
             conversationHistory.append([
                 "role": "user",
                 "content": [
@@ -216,7 +220,17 @@ class OpenRouterService {
         }
     }
 
+    private func logOutboundMessage(role: String, details: String) {
+        outboundMessageCount += 1
+        print("[LLM][OUT #\(outboundMessageCount)] \(role): \(details)")
+    }
+
+    private func elapsed(_ start: Date) -> String {
+        String(format: "%.2fs", Date().timeIntervalSince(start))
+    }
+
     private func callAPI() async throws -> ChatResponse {
+        let apiStart = Date()
         let systemMessage: [String: Any] = [
             "role": "system",
             "content": """
@@ -260,15 +274,17 @@ class OpenRouterService {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = 60
 
-        print("[OpenRouter] POST (\(conversationHistory.count) msgs)")
+        print("[LLM][REQ] POST (\(conversationHistory.count) msgs), t+\(elapsed(apiStart))")
 
+        let networkStart = Date()
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("[LLM][NET] Completed in \(elapsed(networkStart))")
 
         guard let http = response as? HTTPURLResponse else {
             throw ServiceError.parse
         }
 
-        print("[OpenRouter] \(http.statusCode), \(data.count) bytes")
+        print("[LLM][RES] \(http.statusCode), \(data.count) bytes, total t+\(elapsed(apiStart))")
 
         guard http.statusCode == 200 else {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
@@ -308,6 +324,7 @@ class OpenRouterService {
             conversationHistory.append(assistantMsg)
             trimConversationHistory()
 
+            print("[LLM][PARSE] Tool call parsed in total t+\(elapsed(apiStart))")
             return .toolCall(id: id, name: name, arguments: args)
         }
 
@@ -321,6 +338,7 @@ class OpenRouterService {
         trimConversationHistory()
 
         print("[OpenRouter] Response: \"\(trimmed.prefix(80))\"")
+        print("[LLM][PARSE] Text response parsed in total t+\(elapsed(apiStart))")
         return .text(trimmed)
     }
 
