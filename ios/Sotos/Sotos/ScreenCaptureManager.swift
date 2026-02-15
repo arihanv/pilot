@@ -3,7 +3,7 @@ import Foundation
 /// Reads the latest full-device screenshot from the App Group shared container,
 /// written by the BroadcastExtension's SampleHandler.
 class ScreenCaptureManager {
-    static let appGroupID = "group.dev.ethan.Sotos"
+    static let appGroupID = "group.arihan.sotos"
 
     private var sharedContainerURL: URL? {
         FileManager.default.containerURL(

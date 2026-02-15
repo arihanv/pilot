@@ -2,9 +2,10 @@ import Foundation
 
 class OpenRouterService {
     private let apiKey: String
+    // private let model = "anthropic/claude-opus-4.6"
     private let model = "google/gemini-3-flash-preview"
     private let endpoint = URL(string: "https://openrouter.ai/api/v1/chat/completions")!
-    private let maxConversationMessages = 15
+    private let maxConversationMessages = 40
 
     /// Conversation history — [String: Any] to support multimodal & tool messages.
     private var conversationHistory: [[String: Any]] = []
@@ -206,8 +207,12 @@ class OpenRouterService {
     }
 
     private func trimConversationHistory() {
-        if conversationHistory.count > maxConversationMessages {
-            conversationHistory = Array(conversationHistory.suffix(maxConversationMessages))
+        guard conversationHistory.count > maxConversationMessages else { return }
+        conversationHistory = Array(conversationHistory.suffix(maxConversationMessages))
+        // Don't start with orphaned tool results — drop until we hit a user or assistant message
+        while let first = conversationHistory.first,
+              (first["role"] as? String) == "tool" {
+            conversationHistory.removeFirst()
         }
     }
 

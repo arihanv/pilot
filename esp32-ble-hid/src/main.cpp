@@ -33,6 +33,9 @@ const int ABS_STEP_DELAY_MS = 12;
 // If cursor falls short of the target edge, increase this value.
 // If cursor overshoots past the edge, decrease it.
 const float ABS_MOVEMENT_SCALE = 4.0f;
+const int CLICK_SETTLE_BEFORE_MS = 45;
+const int CLICK_HOLD_MS = 65;
+const int CLICK_SETTLE_AFTER_MS = 35;
 
 // Forward declaration
 void handleCommand(String cmd);
@@ -87,6 +90,50 @@ void moveCursorToAbsolute(int targetX, int targetY) {
     delay(ABS_STEP_DELAY_MS);
   }
   delay(25);
+}
+
+void moveCursorToAbsoluteFast(int targetX, int targetY) {
+  targetX = constrain(targetX, 0, LOGICAL_SCREEN_WIDTH);
+  targetY = constrain(targetY, 0, LOGICAL_SCREEN_HEIGHT);
+
+  // Faster homing than the precision path used by moveCursorToAbsolute().
+  for (int i = 0; i < 30; i++) {
+    Mouse.move(-127, -127);
+    delay(3);
+  }
+  delay(30);
+
+  // Move both axes proportionally so the pointer travels in a straight line.
+  const int step = 10;
+  int maxDist = max(targetX, targetY);
+  int totalSteps = (maxDist + step - 1) / step;
+  int cx = 0, cy = 0;
+  for (int i = 1; i <= totalSteps; i++) {
+    int tx = (int)((long)targetX * i / totalSteps);
+    int ty = (int)((long)targetY * i / totalSteps);
+    int dx = tx - cx;
+    int dy = ty - cy;
+    cx = tx;
+    cy = ty;
+    if (dx != 0 || dy != 0) {
+      Mouse.move(dx, dy);
+    }
+    delay(4);
+  }
+  delay(25);
+}
+
+void performLeftClick() {
+  // iOS can ignore zero-duration clicks; hold briefly between press/release.
+  delay(CLICK_SETTLE_BEFORE_MS);
+  Mouse.press(MOUSE_LEFT);
+  // Some hosts are more reliable when button state is accompanied by motion.
+  Mouse.move(1, 0);
+  delay(8);
+  Mouse.move(-1, 0);
+  delay(CLICK_HOLD_MS);
+  Mouse.release(MOUSE_LEFT);
+  delay(CLICK_SETTLE_AFTER_MS);
 }
 
 // --- Send response back via WebSocket ---
@@ -278,7 +325,7 @@ String executeCommand(String cmd) {
     return "ERR: bad MOVE args";
   }
   else if (cmdUpper == "CLICK") {
-    Mouse.click(MOUSE_LEFT);
+    performLeftClick();
     return "OK: click";
   }
   // --- Absolute move/tap by percentage (e.g. MOVE_ABS 50% 50%) ---
@@ -323,7 +370,7 @@ String executeCommand(String cmd) {
       int targetX = (int)((xPercent * LOGICAL_SCREEN_WIDTH / 100.0f) + 0.5f);
       int targetY = (int)((yPercent * LOGICAL_SCREEN_HEIGHT / 100.0f) + 0.5f);
       moveCursorToAbsolute(targetX, targetY);
-      Mouse.click(MOUSE_LEFT);
+      performLeftClick();
 
       String resp = "OK: tap_abs ";
       resp += xToken;
@@ -344,10 +391,11 @@ String executeCommand(String cmd) {
       int targetX = cmdUpper.substring(4, spaceIdx).toInt();
       int targetY = cmdUpper.substring(spaceIdx + 1).toInt();
 
-      moveCursorToAbsolute(targetX, targetY);
+      // TAP is latency-sensitive; use fast absolute movement.
+      moveCursorToAbsoluteFast(targetX, targetY);
 
       // Click
-      Mouse.click(MOUSE_LEFT);
+      performLeftClick();
 
       String resp = "OK: tap ";
       resp += targetX;
@@ -383,8 +431,7 @@ String executeCommand(String cmd) {
         }
         delay(4);
       }
-      delay(30);
-      Mouse.click(MOUSE_LEFT);
+      performLeftClick();
       return "OK: click_at hid=" + String(tx) + "," + String(ty);
     }
     return "ERR: bad CLICK_AT args (use: CLICK_AT x y)";

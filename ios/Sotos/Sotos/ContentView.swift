@@ -106,6 +106,7 @@ struct ContentView: View {
             .toolbarColorScheme(.light, for: .navigationBar)
             .preferredColorScheme(.light)
             .animation(.default, value: manager.isActive)
+            .animation(.default, value: manager.isRecording)
             .animation(.default, value: manager.isProcessing)
             .animation(.default, value: manager.isSpeaking)
             .animation(.default, value: manager.cuaStatus)
@@ -176,33 +177,55 @@ struct ContentView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 10) {
-            Button {
-                manager.sendPhoneCommandsFireAndForget([
-                    "HOME", "SPOTLIGHT", "TYPE Messages", "ENTER"
-                ])
-            } label: {
-                Label("Open Messages", systemImage: "message.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(ProminentActionButtonStyle(color: .green))
-
-            Button {
-                Task {
-                    if manager.isActive {
-                        await manager.stopLiveMode()
-                    } else {
-                        await manager.startLiveMode()
-                    }
+            if manager.isActive {
+                pttButton
+            } else {
+                Button {
+                    Task { await manager.startLiveMode() }
+                } label: {
+                    Label("Start Live Mode", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
                 }
-            } label: {
-                Label(
-                    manager.isActive ? "Stop Live Mode" : "Start Live Mode",
-                    systemImage: manager.isActive ? "stop.fill" : "play.fill"
-                )
-                .frame(maxWidth: .infinity)
+                .buttonStyle(ProminentActionButtonStyle(color: .blue))
             }
-            .buttonStyle(ProminentActionButtonStyle(color: manager.isActive ? .red : .blue))
+
+            if manager.isActive {
+                Button {
+                    Task { await manager.stopLiveMode() }
+                } label: {
+                    Label("Stop", systemImage: "stop.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.red)
+                }
+            }
         }
+    }
+
+    private var pttButton: some View {
+        let isHeld = manager.isRecording
+        return Circle()
+            .fill(isHeld ? Color.red : Color.blue)
+            .frame(width: 88, height: 88)
+            .overlay(
+                Image(systemName: isHeld ? "mic.fill" : "mic")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .symbolEffect(.pulse, isActive: isHeld)
+            )
+            .shadow(color: (isHeld ? Color.red : Color.blue).opacity(0.4), radius: isHeld ? 16 : 8, y: 4)
+            .scaleEffect(isHeld ? 1.12 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: isHeld)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if !manager.isRecording {
+                            manager.beginRecording()
+                        }
+                    }
+                    .onEnded { _ in
+                        manager.endRecording()
+                    }
+            )
     }
 
     private func infoCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -221,7 +244,8 @@ struct ContentView: View {
     private var statusText: String {
         if !manager.isActive { return "Tap below to start Live Mode" }
         if manager.isProcessing { return "Processing…" }
-        return "Listening…"
+        if manager.isRecording { return "Listening…" }
+        return "Hold mic to talk"
     }
 }
 

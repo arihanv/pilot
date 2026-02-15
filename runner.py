@@ -15,7 +15,7 @@ client = openai.OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
 )
-MODEL = "google/gemini-3-flash-preview"
+MODEL = "qwen/qwen3-32b:nitro"
 
 # --- Step 1: Detect app icons with Moondream ---
 with open("screenshot.png", "rb") as f:
@@ -31,7 +31,7 @@ result = requests.post(
     },
     json={
         "image_url": image_url,
-        "object": "slack app",
+        "object": "app icon",
     },
 ).json()
 

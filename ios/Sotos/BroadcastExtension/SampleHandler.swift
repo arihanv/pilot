@@ -14,7 +14,7 @@ import CoreImage
 /// writes the latest one as a JPEG to the App Group shared container so the
 /// main Sotos app can read it on demand.
 class SampleHandler: RPBroadcastSampleHandler {
-    static let appGroupID = "group.dev.ethan.Sotos"
+    static let appGroupID = "group.arihan.sotos"
 
     private let ciContext = CIContext()
     private var frameCount = 0
@@ -70,14 +70,16 @@ class SampleHandler: RPBroadcastSampleHandler {
         let uiImage = UIImage(cgImage: cgImage)
         
         // Scale down for API efficiency (max 1024px on longest side).
-        let maxDim: CGFloat = 1024
+        let maxDim: CGFloat = 2048
         let scale = min(maxDim / uiImage.size.width, maxDim / uiImage.size.height, 1.0)
         let newSize = CGSize(
             width: floor(uiImage.size.width * scale),
             height: floor(uiImage.size.height * scale)
         )
 
-        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let fmt = UIGraphicsImageRendererFormat()
+        fmt.scale = 1.0
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: fmt)
         let scaled = renderer.image { _ in
             uiImage.draw(in: CGRect(origin: .zero, size: newSize))
         }

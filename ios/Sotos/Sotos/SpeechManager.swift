@@ -5,6 +5,7 @@ import AVFoundation
 class SpeechManager {
     var transcribedText: String = ""
     var isListening: Bool = false
+    var isPTTMode: Bool = false
 
     private var speechRecognizer: SFSpeechRecognizer?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -210,6 +211,10 @@ class SpeechManager {
 
                         if result.isFinal {
                             print("[Speech] Final result: \(text.prefix(50))...")
+                            if self.isPTTMode {
+                                // PTT: keep text, don't restart — user controls via button
+                                return
+                            }
                             self.silenceTimer?.invalidate()
                             self.silenceTimer = nil
                             self.submitUtteranceIfNeeded()
@@ -220,6 +225,7 @@ class SpeechManager {
 
                     if let error {
                         print("[Speech] Error: \(error.localizedDescription)")
+                        if self.isPTTMode { return }
                         self.silenceTimer?.invalidate()
                         self.silenceTimer = nil
                         self.submitUtteranceIfNeeded()
@@ -249,6 +255,7 @@ class SpeechManager {
     // MARK: - Silence timer
 
     private func resetSilenceTimer() {
+        guard !isPTTMode else { return }
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
             Task { @MainActor [weak self] in

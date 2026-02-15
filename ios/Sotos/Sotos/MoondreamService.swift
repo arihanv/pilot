@@ -80,7 +80,9 @@ class MoondreamService {
         guard let image = UIImage(data: imageData) else { return nil }
         let size = image.size
 
-        let renderer = UIGraphicsImageRenderer(size: size)
+        let fmt = UIGraphicsImageRendererFormat()
+        fmt.scale = 1.0
+        let renderer = UIGraphicsImageRenderer(size: size, format: fmt)
         let annotated = renderer.image { context in
             image.draw(at: .zero)
             let ctx = context.cgContext

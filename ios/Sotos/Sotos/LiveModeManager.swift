@@ -10,7 +10,7 @@ final class BroadcastPicker {
 
     private let picker: RPSystemBroadcastPickerView = {
         let p = RPSystemBroadcastPickerView()
-        p.preferredExtension = "dev.ethan.Sotos.BroadcastExtension"
+        p.preferredExtension = "dev.arihan.Sotos.BroadcastExtension"
         p.showsMicrophoneButton = false
         return p
     }()
@@ -31,6 +31,7 @@ final class BroadcastPicker {
 class LiveModeManager {
     var isActive = false
     var isProcessing = false
+    var isRecording = false
     var isSpeaking = false
     var currentTranscription = ""
     var lastResponse = ""
@@ -53,7 +54,7 @@ class LiveModeManager {
     // CUA state
     private var lastElements: [DetectedElement] = []
     private var lastScreenshotData: Data?
-    private let maxCUASteps = 25
+    private var cuaStep = 0
 
     // Cartesia TTS
     private let cartesiaAPIKey = "sk_car_bx91c6sUzBR4z6gfzF49UF" // sk_car_LX13WDzurrLVVk3k2GU8hk
@@ -124,38 +125,38 @@ class LiveModeManager {
             BroadcastPicker.shared.tap()
         }
 
+        // PTT mode: prepare speech but start paused — user holds button to talk
         do {
-            try speechManager.startListening { [weak self] utterance in
-                print("[LiveMode] Utterance: \(utterance.prefix(60))...")
-                self?.handleUtterance(utterance)
-            }
-            print("[LiveMode] Speech recognition started")
+            speechManager.isPTTMode = true
+            try speechManager.startListening { _ in }
+            speechManager.pauseListening()
+            print("[LiveMode] PTT mode ready — hold button to talk")
         } catch {
             errorMessage = "Speech recognition failed: \(error.localizedDescription)"
             await stopLiveMode()
         }
     }
 
-    func stopLiveMode() async {
-        guard isActive else { return }
-        speechManager.stopAudio()
-        speechManager.stopListening()
-        isSpeaking = false
-        isActive = false
-        isProcessing = false
-        cuaStatus = ""
-        currentTranscription = ""
-        lastElements = []
-        lastScreenshotData = nil
-    }
+    // MARK: - Push-to-Talk
 
-    // MARK: - Utterance → CUA Loop
-
-    private func handleUtterance(_ text: String) {
+    func beginRecording() {
+        guard isActive, !isRecording else { return }
         if isSpeaking {
             speechManager.stopAudio()
             isSpeaking = false
         }
+        isRecording = true
+        speechManager.resumeListening()
+        print("[PTT] Recording started")
+    }
+
+    func endRecording() {
+        guard isRecording else { return }
+        isRecording = false
+        let text = speechManager.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        speechManager.pauseListening()
+        print("[PTT] Recording ended, text: \(text.prefix(60))")
+        guard !text.isEmpty else { return }
 
         currentTranscription = text
         isProcessing = true
@@ -167,14 +168,30 @@ class LiveModeManager {
         }
     }
 
+    func stopLiveMode() async {
+        guard isActive else { return }
+        speechManager.stopAudio()
+        speechManager.stopListening()
+        speechManager.isPTTMode = false
+        isSpeaking = false
+        isActive = false
+        isRecording = false
+        isProcessing = false
+        cuaStatus = ""
+        currentTranscription = ""
+        lastElements = []
+        lastScreenshotData = nil
+    }
+
     /// Main CUA loop: sends user message, then keeps executing tool calls until
     /// the model responds with plain text (the final answer).
     private func runCUALoop(userMessage: String, requestId myId: Int) async {
         print("[CUA] === Starting CUA loop (reqId=\(myId)) for: \"\(userMessage)\" ===")
         do {
+            cuaStep = 0
             var response = try await openRouter.sendMessage(userMessage)
 
-            for step in 0..<maxCUASteps {
+            while true {
                 guard self.requestId == myId else { return }
 
                 switch response {
@@ -184,7 +201,8 @@ class LiveModeManager {
                     return
 
                 case .toolCall(let id, let name, let args):
-                    print("[CUA] Step \(step + 1)/\(maxCUASteps): \(name) args=\(args)")
+                    cuaStep += 1
+                    print("[CUA] Step \(cuaStep): \(name) args=\(args)")
                     cuaStatus = statusLabel(tool: name, args: args)
 
                     let result = await executeTool(name: name, args: args)
@@ -203,11 +221,6 @@ class LiveModeManager {
                     )
                 }
             }
-
-            // Exceeded max steps
-            guard self.requestId == myId else { return }
-            cuaStatus = ""
-            showResponse("I've taken too many steps. Please try a more specific request.")
         } catch {
             guard self.requestId == myId else { return }
             cuaStatus = ""
@@ -307,18 +320,25 @@ class LiveModeManager {
             return .text("ERROR: No screenshot data. Call get_screenshot first.")
         }
 
-        // Use normalized coords → full screenshot pixels → calibrated HID units
-        let pixelX = Double(element.centerX) * Config.screenshotWidth
-        let pixelY = Double(element.centerY) * Config.screenshotHeight
+        // Pixel-first path:
+        // convert detected center pixel from the live screenshot size
+        // into the calibrated screenshot coordinate space, then CLICK_AT HID.
+        let imageSize = image.size
+        let pixel = element.pixelCenter(imageWidth: imageSize.width, imageHeight: imageSize.height)
+        let liveWidth = max(Double(imageSize.width), 1.0)
+        let liveHeight = max(Double(imageSize.height), 1.0)
+        let pixelX = Double(pixel.x)
+        let pixelY = Double(pixel.y)
+        let calibratedPixelX = pixelX * (Config.screenshotWidth / liveWidth)
+        let calibratedPixelY = pixelY * (Config.screenshotHeight / liveHeight)
+        let hidX = Int(calibratedPixelX * Config.hidScaleX + Config.hidOffsetX)
+        let hidY = Int(calibratedPixelY * calibratedPixelY * Config.hidQuadY + calibratedPixelY * Config.hidLinearY + Config.hidConstY)
 
-        let hidX = Int(pixelX * Config.hidScaleX + Config.hidOffsetX)
-        let hidY = Int(pixelY * pixelY * Config.hidQuadY + pixelY * Config.hidLinearY + Config.hidConstY)
-
-        print("[CUA] Tap element \(elementId) → pixel (\(Int(pixelX)),\(Int(pixelY))) → HID (\(hidX),\(hidY))")
+        print("[CUA] Tap element \(elementId) → pixel (\(pixel.x),\(pixel.y)) → calibrated (\(Int(calibratedPixelX)),\(Int(calibratedPixelY))) → HID (\(hidX),\(hidY))")
 
         await sendPhoneCommands(["CLICK_AT \(hidX) \(hidY)"])
 
-        return .text("Tapped element \(elementId) at HID (\(hidX), \(hidY)). Use wait_seconds then get_screenshot to verify.")
+        return .text("Tapped element \(elementId) at pixel (\(pixel.x), \(pixel.y)); calibrated to (\(Int(calibratedPixelX)), \(Int(calibratedPixelY))) and clicked at HID (\(hidX), \(hidY)). Use wait_seconds then get_screenshot to verify.")
     }
 
     // MARK: type_text
@@ -398,6 +418,7 @@ class LiveModeManager {
 
     private func speak(_ text: String) {
         speechManager.stopAudio()
+        speechManager.pauseListening()
         isSpeaking = true
 
         Task {
@@ -407,6 +428,7 @@ class LiveModeManager {
                 speechManager.playAudio(data: audioData) { [weak self] in
                     Task { @MainActor in
                         self?.isSpeaking = false
+                        // PTT: don't resume mic — wait for next button press
                     }
                 }
             } catch {
