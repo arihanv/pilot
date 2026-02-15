@@ -1,4 +1,10 @@
 import AppIntents
+import Foundation
+
+private enum ShortcutBridge {
+    static let appGroup = "group.dev.ethan.Sotos"
+    static let queueKey = "shortcut_prompt_queue"
+}
 
 struct SendPromptToSotosIntent: AppIntent {
     static var title: LocalizedStringResource = "Send Prompt to Sotos"
@@ -13,11 +19,16 @@ struct SendPromptToSotosIntent: AppIntent {
     }
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & OpensIntent {
+        if let defaults = UserDefaults(suiteName: ShortcutBridge.appGroup) {
+            var queue = defaults.stringArray(forKey: ShortcutBridge.queueKey) ?? []
+            queue.append(prompt)
+            defaults.set(queue, forKey: ShortcutBridge.queueKey)
+        }
+
         var components = URLComponents()
         components.scheme = "sotos"
         components.host = "shortcut"
-        components.queryItems = [URLQueryItem(name: "text", value: prompt)]
 
         guard let url = components.url else {
             throw NSError(domain: "SotosShortcuts", code: 1, userInfo: [
@@ -37,8 +48,8 @@ struct SotosAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: SendPromptToSotosIntent(),
             phrases: [
-                "Ask \(.applicationName) \(\.$prompt)",
-                "Send to \(.applicationName) \(\.$prompt)"
+                "Ask \(.applicationName)",
+                "Send to \(.applicationName)"
             ],
             shortTitle: "Send Prompt",
             systemImageName: "text.bubble"

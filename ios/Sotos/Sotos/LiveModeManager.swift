@@ -161,30 +161,27 @@ class LiveModeManager {
         let text = speechManager.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
         speechManager.pauseListening()
         print("[PTT] Recording ended, text: \(text.prefix(60))")
-        guard !text.isEmpty else { return }
-
-        currentTranscription = text
-        isProcessing = true
-        requestId += 1
-        let myId = requestId
-
-        Task {
-            await runCUALoop(userMessage: text, requestId: myId)
-        }
+        processIncomingUtterance(text)
     }
 
     /// Handles text prompts from external sources like Apple Shortcuts.
     /// This bypasses dictation and sends the provided text directly to the CUA loop.
     func submitShortcutPrompt(_ prompt: String) {
-        let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        processIncomingUtterance(prompt)
+    }
+
+    /// Unified text ingestion path used by both dictation and external prompts.
+    private func processIncomingUtterance(_ rawText: String) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        print("[LiveMode] Processing utterance: \(text.prefix(80))")
 
         if isSpeaking {
             speechManager.stopAudio()
             isSpeaking = false
         }
 
-        // Keep mic idle while processing a typed/shortcut prompt.
+        // Keep mic idle while processing a complete utterance.
         speechManager.pauseListening()
         isRecording = false
 

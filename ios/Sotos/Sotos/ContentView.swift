@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var manager = LiveModeManager(apiKey: Config.openRouterAPIKey)
+    @Bindable var manager: LiveModeManager
 
     var body: some View {
         NavigationStack {
@@ -121,12 +121,6 @@ struct ContentView: View {
             }
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
-        .onOpenURL { url in
-            guard url.scheme?.lowercased() == "sotos" else { return }
-            guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
-            let text = components.queryItems?.first(where: { $0.name == "text" })?.value ?? ""
-            manager.submitShortcutPrompt(text)
-        }
     }
 
     private var statusHeader: some View {

@@ -19,6 +19,7 @@ class SpeechManager {
     private var lastDeliveredAt: Date = .distantPast
     private var audioSessionConfigured = false
     private var tapBufferCounter: Int = 0
+    private var inputTapInstalled: Bool = false
 
     func requestPermissions() async -> Bool {
         let speechStatus = await withCheckedContinuation { continuation in
@@ -84,6 +85,7 @@ class SpeechManager {
     }
 
     private func teardownEngine() {
+        inputTapInstalled = false
         playerNode?.stop()
         playerNode = nil
         audioEngine?.stop()
@@ -192,6 +194,7 @@ class SpeechManager {
                     }
                 }
             }
+            inputTapInstalled = true
 
             isListening = true
             generation += 1
@@ -247,7 +250,10 @@ class SpeechManager {
     private func stopRecognition() {
         recognitionTask?.cancel()
         recognitionTask = nil
-        audioEngine?.inputNode.removeTap(onBus: 0)
+        if inputTapInstalled {
+            audioEngine?.inputNode.removeTap(onBus: 0)
+            inputTapInstalled = false
+        }
         recognitionRequest?.endAudio()
         recognitionRequest = nil
     }
