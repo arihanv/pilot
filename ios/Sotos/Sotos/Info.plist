@@ -24,12 +24,12 @@
 	<string>Sotos listens for your voice to run live commands and conversations.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Sotos converts your speech to text so Live Mode can respond.</string>
-	<key>UILaunchScreen</key>
-	<dict/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
 		<string>processing</string>
 	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
 </dict>
 </plist>

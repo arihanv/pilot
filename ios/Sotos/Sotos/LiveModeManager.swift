@@ -307,18 +307,18 @@ class LiveModeManager {
             return .text("ERROR: No screenshot data. Call get_screenshot first.")
         }
 
-        let center = element.pixelCenter(imageWidth: image.size.width, imageHeight: image.size.height)
+        // Use normalized coords → full screenshot pixels → calibrated HID units
+        let pixelX = Double(element.centerX) * Config.screenshotWidth
+        let pixelY = Double(element.centerY) * Config.screenshotHeight
 
-        // Convert from screenshot pixels to logical points for the HID cursor
-        let tapX = Int(Float(center.x) / Config.screenScale)
-        let tapY = Int(Float(center.y) / Config.screenScale)
+        let hidX = Int(pixelX * Config.hidScaleX + Config.hidOffsetX)
+        let hidY = Int(pixelY * pixelY * Config.hidQuadY + pixelY * Config.hidLinearY + Config.hidConstY)
 
-        print("[CUA] Tap element \(elementId) → pixel (\(center.x),\(center.y)) → logical (\(tapX),\(tapY))")
+        print("[CUA] Tap element \(elementId) → pixel (\(Int(pixelX)),\(Int(pixelY))) → HID (\(hidX),\(hidY))")
 
-        // Use the ESP32 TAP command for absolute positioning
-        await sendPhoneCommands(["TAP \(tapX) \(tapY)"])
+        await sendPhoneCommands(["CLICK_AT \(hidX) \(hidY)"])
 
-        return .text("Tapped element \(elementId) at logical point (\(tapX), \(tapY)). Use wait_seconds then get_screenshot to verify.")
+        return .text("Tapped element \(elementId) at HID (\(hidX), \(hidY)). Use wait_seconds then get_screenshot to verify.")
     }
 
     // MARK: type_text
