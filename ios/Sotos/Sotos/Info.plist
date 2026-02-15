@@ -18,6 +18,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Sotos detects your paired ESP32 controller to route commands to the correct device.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
