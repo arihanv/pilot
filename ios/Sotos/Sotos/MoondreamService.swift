@@ -145,6 +145,59 @@ class MoondreamService {
         return annotated.jpegData(compressionQuality: 0.85)
     }
 
+    /// Return a smaller JPEG for sending to the LLM — half resolution, lower quality.
+    func annotateImageForLLM(imageData: Data, elements: [DetectedElement]) -> Data? {
+        guard let image = UIImage(data: imageData) else { return nil }
+        let size = image.size
+        // Half resolution for LLM
+        let scale: CGFloat = 0.5
+        let llmSize = CGSize(width: size.width * scale, height: size.height * scale)
+
+        let fmt = UIGraphicsImageRendererFormat()
+        fmt.scale = 1.0
+        let renderer = UIGraphicsImageRenderer(size: llmSize, format: fmt)
+        let annotated = renderer.image { context in
+            image.draw(in: CGRect(origin: .zero, size: llmSize))
+            let ctx = context.cgContext
+
+            let colors: [UIColor] = [
+                UIColor(red: 0.60, green: 0.20, blue: 1.00, alpha: 1),
+                UIColor(red: 0.00, green: 0.50, blue: 1.00, alpha: 1),
+                UIColor(red: 0.00, green: 0.80, blue: 0.40, alpha: 1),
+                UIColor(red: 1.00, green: 0.60, blue: 0.00, alpha: 1),
+                UIColor(red: 1.00, green: 0.20, blue: 0.20, alpha: 1),
+                UIColor(red: 0.00, green: 0.80, blue: 0.80, alpha: 1),
+                UIColor(red: 1.00, green: 0.40, blue: 0.70, alpha: 1),
+                UIColor(red: 0.90, green: 0.90, blue: 0.00, alpha: 1),
+            ]
+
+            for element in elements {
+                let color = colors[(element.id - 1) % colors.count]
+                let rect = CGRect(
+                    x: element.xMin * llmSize.width,
+                    y: element.yMin * llmSize.height,
+                    width: (element.xMax - element.xMin) * llmSize.width,
+                    height: (element.yMax - element.yMin) * llmSize.height
+                )
+                ctx.setStrokeColor(color.cgColor)
+                ctx.setLineWidth(3)
+                ctx.stroke(rect)
+
+                let label = "\(element.id)"
+                let font = UIFont.boldSystemFont(ofSize: 20)
+                let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.white]
+                let textSize = (label as NSString).size(withAttributes: attrs)
+                let pad: CGFloat = 4
+                let bgRect = CGRect(x: rect.minX, y: rect.minY, width: textSize.width + pad * 2, height: textSize.height + pad * 2)
+                ctx.setFillColor(color.cgColor)
+                ctx.fill(bgRect)
+                (label as NSString).draw(at: CGPoint(x: bgRect.minX + pad, y: bgRect.minY + pad), withAttributes: attrs)
+            }
+        }
+
+        return annotated.jpegData(compressionQuality: 0.5)
+    }
+
     // MARK: - Errors
 
     enum MoondreamError: LocalizedError {
