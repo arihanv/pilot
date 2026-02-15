@@ -57,12 +57,23 @@ class LiveModeManager {
     private var cuaStep = 0
 
     // Cartesia TTS
-    private let cartesiaAPIKey = "sk_car_bx91c6sUzBR4z6gfzF49UF" // sk_car_LX13WDzurrLVVk3k2GU8hk
+    private let cartesiaAPIKey = "sk_car_NbH5v8KK7dJ9rB8udKqp3Q" // sk_car_LX13WDzurrLVVk3k2GU8hk
     private let cartesiaVoiceId = "e8e5fffb-252c-436d-b842-8879b84445b6"
     private let cartesiaModelId = "sonic-3"
 
     private func elapsed(_ start: Date) -> String {
         String(format: "%.2fs", Date().timeIntervalSince(start))
+    }
+
+    /// Downsample a UIImage to half-res JPEG at 0.5 quality for sending to the LLM.
+    private func downsampleForLLM(_ image: UIImage) -> Data {
+        let scale: CGFloat = 0.5
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let fmt = UIGraphicsImageRendererFormat()
+        fmt.scale = 1.0
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: fmt)
+        let small = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: newSize)) }
+        return small.jpegData(compressionQuality: 0.5) ?? Data()
     }
 
     init(apiKey: String) {
@@ -289,6 +300,7 @@ class LiveModeManager {
         case "tap_element":      return await toolTapElement(args)
         case "type_text":        return await toolTypeText(args)
         case "swipe_screen":     return await toolSwipeScreen(args)
+        case "scroll_screen":    return await toolScrollScreen(args)
         case "press_key":        return await toolPressKey(args)
         case "wait_seconds":     return await toolWait(args)
         default:                 return .text("Unknown tool: \(name)")
@@ -308,7 +320,10 @@ class LiveModeManager {
             return .text("ERROR: Could not capture screenshot. Broadcast may not be running.")
         }
 
-        let imageSize = UIImage(data: screenshotData)?.size ?? .zero
+        guard let screenshotImage = UIImage(data: screenshotData) else {
+            return .text("ERROR: Could not decode screenshot image.")
+        }
+        let imageSize = screenshotImage.size
         print("[CUA] Screenshot captured: \(screenshotData.count) bytes, \(Int(imageSize.width))x\(Int(imageSize.height))")
 
         let detectPrompt = args["detect"] as? String ?? "all interactive elements"
@@ -321,25 +336,24 @@ class LiveModeManager {
             lastScreenshotData = screenshotData
 
             if elements.isEmpty {
-                // No detection — send raw screenshot
-                let base64 = screenshotData.base64EncodedString()
+                // No detection — send smaller raw screenshot to LLM
+                let smallData = downsampleForLLM(screenshotImage)
                 return .textWithImage(
-                    text: "Screenshot captured. No elements matching '\(detectPrompt)' were detected. Try a different detection prompt. Raw screenshot attached.",
-                    imageBase64: base64
+                    text: "Screenshot captured. No elements matching '\(detectPrompt)' were detected. Try a different detection prompt or swipe_screen to scroll. Raw screenshot attached.",
+                    imageBase64: smallData.base64EncodedString()
                 )
             }
 
-            // Annotate
-            guard let annotatedData = moondream.annotateImage(imageData: screenshotData, elements: elements) else {
-                let base64 = screenshotData.base64EncodedString()
+            // Annotate at half-res + lower quality for LLM
+            guard let llmAnnotated = moondream.annotateImageForLLM(imageData: screenshotData, elements: elements) else {
+                let smallData = downsampleForLLM(screenshotImage)
                 return .textWithImage(
                     text: "Screenshot captured but annotation failed. \(elements.count) elements detected. Raw screenshot attached.",
-                    imageBase64: base64
+                    imageBase64: smallData.base64EncodedString()
                 )
             }
 
             // Build description
-            let imageSize = UIImage(data: screenshotData)?.size ?? CGSize(width: 1, height: 1)
             var desc = "Screenshot captured. \(elements.count) elements matching '\(detectPrompt)':\n"
             for el in elements {
                 let center = el.pixelCenter(imageWidth: imageSize.width, imageHeight: imageSize.height)
@@ -347,15 +361,15 @@ class LiveModeManager {
             }
             desc += "Annotated screenshot with numbered bounding boxes attached. Use tap_element(element_id) to interact."
 
-            return .textWithImage(text: desc, imageBase64: annotatedData.base64EncodedString())
+            return .textWithImage(text: desc, imageBase64: llmAnnotated.base64EncodedString())
 
         } catch {
             print("[CUA] Moondream error: \(error)")
-            // Fallback: send raw screenshot
-            let base64 = screenshotData.base64EncodedString()
+            // Fallback: send smaller raw screenshot
+            let smallData = downsampleForLLM(screenshotImage)
             return .textWithImage(
                 text: "Screenshot captured but element detection failed: \(error.localizedDescription). Raw screenshot attached — you can still describe what you see and try press_key/type_text.",
-                imageBase64: base64
+                imageBase64: smallData.base64EncodedString()
             )
         }
     }
@@ -427,6 +441,23 @@ class LiveModeManager {
 
         await sendPhoneCommands([cmd])
         return .text("Swiped \(direction).")
+    }
+
+    // MARK: scroll_screen
+
+    private func toolScrollScreen(_ args: [String: Any]) async -> OpenRouterService.ToolResultContent {
+        guard let direction = args["direction"] as? String else {
+            return .text("ERROR: direction is required (up/down)")
+        }
+        let amount = args["amount"] as? Int ?? 5
+        let value: Int
+        switch direction {
+        case "up":    value = -amount
+        case "down":  value = amount
+        default:      return .text("ERROR: Invalid direction '\(direction)', use up/down")
+        }
+        await sendPhoneCommands(["SCROLL \(value)"])
+        return .text("Scrolled \(direction) by \(amount).")
     }
 
     // MARK: press_key

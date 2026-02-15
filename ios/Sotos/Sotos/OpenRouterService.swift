@@ -86,6 +86,28 @@ class OpenRouterService {
         [
             "type": "function",
             "function": [
+                "name": "scroll_screen",
+                "description": "Scroll the screen up or down using the scroll wheel. Preferred over swipe_screen for vertical scrolling. Default amount is 5. Positive = scroll down, negative = scroll up.",
+                "parameters": [
+                    "type": "object",
+                    "properties": [
+                        "direction": [
+                            "type": "string",
+                            "enum": ["up", "down"],
+                            "description": "'up' = scroll content upward (reveal above). 'down' = scroll content downward (reveal below)."
+                        ] as [String: Any],
+                        "amount": [
+                            "type": "integer",
+                            "description": "Scroll intensity (default 5). Higher = more scrolling."
+                        ] as [String: Any]
+                    ] as [String: Any],
+                    "required": ["direction"]
+                ] as [String: Any]
+            ] as [String: Any]
+        ],
+        [
+            "type": "function",
+            "function": [
                 "name": "press_key",
                 "description": "Press a special key or iOS system shortcut. Use HOME to go to home screen, SPOTLIGHT to open search (then type_text to search), APPSWITCHER to see open apps, ENTER to confirm/submit, BACKSPACE to delete text, ESC to dismiss/cancel.",
                 "parameters": [
@@ -252,8 +274,10 @@ class OpenRouterService {
             SCROLLING — VERY IMPORTANT:
             - You can ONLY see what's currently visible on screen. Content may extend below or above the viewport.
             - If you can't find a button, link, or element you expect to exist, SCROLL to reveal it.
-            - Use swipe_screen(direction: "up") to scroll DOWN and reveal content below the fold.
-            - Use swipe_screen(direction: "down") to scroll UP and reveal content above.
+            - PREFER scroll_screen over swipe_screen for vertical scrolling — it's more reliable.
+            - Use scroll_screen(direction: "down") to scroll DOWN and reveal content below the fold.
+            - Use scroll_screen(direction: "up") to scroll UP and reveal content above.
+            - Use swipe_screen only for horizontal scrolling (left/right).
             - After scrolling, ALWAYS take a new get_screenshot to see the newly visible content.
             - You may need to scroll multiple times to find what you're looking for.
             - Common cases: confirmation buttons at bottom of forms, items in long lists, settings deeper in a page.

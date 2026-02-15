@@ -329,6 +329,20 @@ String executeCommand(String cmd) {
     return "OK: click";
   }
   // --- Absolute move/tap by percentage (e.g. MOVE_ABS 50% 50%) ---
+  else if (cmdUpper.startsWith("MOVE_TO ")) {
+    int spaceIdx = cmdUpper.indexOf(' ', 8);
+    if (spaceIdx > 0) {
+      int targetX = cmdUpper.substring(8, spaceIdx).toInt();
+      int targetY = cmdUpper.substring(spaceIdx + 1).toInt();
+      moveCursorToAbsoluteFast(targetX, targetY);
+      String resp = "OK: move_to ";
+      resp += targetX;
+      resp += ",";
+      resp += targetY;
+      return resp;
+    }
+    return "ERR: bad MOVE_TO args (need MOVE_TO x y in pixels)";
+  }
   else if (cmdUpper.startsWith("MOVE_ABS ")) {
     int spaceIdx = cmdUpper.indexOf(' ', 9);
     if (spaceIdx > 0) {
@@ -442,7 +456,12 @@ String executeCommand(String cmd) {
   }
   else if (cmdUpper.startsWith("SCROLL ")) {
     int amount = cmdUpper.substring(7).toInt();
-    Mouse.move(0, 0, amount);
+    int dir = (amount > 0) ? 1 : -1;
+    int steps = abs(amount);
+    for (int i = 0; i < steps; i++) {
+      Mouse.move(0, 0, dir);
+      delay(10);
+    }
     return "OK: scroll";
   }
   else if (cmdUpper.startsWith("SWIPE ")) {
