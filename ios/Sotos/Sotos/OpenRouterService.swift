@@ -18,7 +18,7 @@ class OpenRouterService {
             "type": "function",
             "function": [
                 "name": "get_screenshot",
-                "description": "Capture a screenshot of the phone screen and detect UI elements using vision AI. Provide a specific detection prompt describing what to look for. The screenshot will be annotated with numbered colored bounding boxes.",
+                "description": "Capture a screenshot of the phone screen and detect UI elements using vision AI. Provide a specific detection prompt describing what to look for. The screenshot will be annotated with numbered colored bounding boxes. IMPORTANT: This only shows what's currently visible on screen — if the element you need isn't visible, use swipe_screen to scroll first, then take another screenshot.",
                 "parameters": [
                     "type": "object",
                     "properties": [
@@ -35,7 +35,7 @@ class OpenRouterService {
             "type": "function",
             "function": [
                 "name": "tap_element",
-                "description": "Tap on a UI element detected in the last screenshot. Use the element's numbered ID from the annotated screenshot.",
+                "description": "Tap on a UI element detected in the last screenshot. Use the element's numbered ID from the annotated screenshot. Always call get_screenshot first to get fresh element IDs. After tapping, use wait_seconds then get_screenshot to verify the tap registered.",
                 "parameters": [
                     "type": "object",
                     "properties": [
@@ -52,7 +52,7 @@ class OpenRouterService {
             "type": "function",
             "function": [
                 "name": "type_text",
-                "description": "Type text using the keyboard. Text is typed character by character. Make sure a text field is focused first.",
+                "description": "Type text using the keyboard. Text is typed character by character. Make sure a text field is focused/tapped first. If the keyboard isn't visible, tap the text field first.",
                 "parameters": [
                     "type": "object",
                     "properties": [
@@ -69,14 +69,14 @@ class OpenRouterService {
             "type": "function",
             "function": [
                 "name": "swipe_screen",
-                "description": "Swipe gesture on the phone screen. Use for scrolling content, navigating pages, or dismissing views.",
+                "description": "Scroll/swipe on the phone screen. Use this to reveal content that is off-screen. If you can't find a button, link, or element — it's probably below the fold, so swipe up to scroll down and reveal it. Use 'up' to scroll content DOWN (reveal more below), 'down' to scroll content UP (reveal more above), 'left'/'right' for horizontal scrolling (e.g. carousels, pages). You can call this multiple times to scroll further. Always take a screenshot after scrolling to see the new content.",
                 "parameters": [
                     "type": "object",
                     "properties": [
                         "direction": [
                             "type": "string",
                             "enum": ["up", "down", "left", "right"],
-                            "description": "Swipe direction. 'up' scrolls content down, 'down' scrolls content up."
+                            "description": "Swipe direction. 'up' = scroll content downward (see more below). 'down' = scroll content upward (see more above). 'left' = scroll content rightward. 'right' = scroll content leftward."
                         ] as [String: Any]
                     ] as [String: Any],
                     "required": ["direction"]
@@ -87,14 +87,14 @@ class OpenRouterService {
             "type": "function",
             "function": [
                 "name": "press_key",
-                "description": "Press a special key or iOS shortcut on the phone.",
+                "description": "Press a special key or iOS system shortcut. Use HOME to go to home screen, SPOTLIGHT to open search (then type_text to search), APPSWITCHER to see open apps, ENTER to confirm/submit, BACKSPACE to delete text, ESC to dismiss/cancel.",
                 "parameters": [
                     "type": "object",
                     "properties": [
                         "key": [
                             "type": "string",
                             "enum": ["HOME", "ENTER", "BACKSPACE", "SPOTLIGHT", "APPSWITCHER", "LOCK", "ESC", "TAB", "SPACE"],
-                            "description": "Key to press. HOME = home screen, SPOTLIGHT = search, APPSWITCHER = app switcher."
+                            "description": "HOME = go to home screen. SPOTLIGHT = open iOS search. APPSWITCHER = show app switcher. ENTER = confirm/submit. BACKSPACE = delete character. ESC = dismiss/go back. TAB = next field. SPACE = space key."
                         ] as [String: Any]
                     ] as [String: Any],
                     "required": ["key"]
@@ -238,6 +238,9 @@ class OpenRouterService {
             You accomplish tasks by repeatedly taking screenshots with element detection, deciding what to \
             interact with, and executing actions.
 
+            You will start off in the calling app that spawns you where the user asks a question. the first thing you need to do
+            is to leave this app and go to the home screen. then complete the user's task.
+
             WORKFLOW:
             1. Call get_screenshot with a specific detection prompt to see the current screen
             2. Examine the annotated screenshot — elements have numbered colored bounding boxes
@@ -246,13 +249,22 @@ class OpenRouterService {
             5. Call get_screenshot again to verify the result and see the new state
             6. Repeat until the task is complete
 
+            SCROLLING — VERY IMPORTANT:
+            - You can ONLY see what's currently visible on screen. Content may extend below or above the viewport.
+            - If you can't find a button, link, or element you expect to exist, SCROLL to reveal it.
+            - Use swipe_screen(direction: "up") to scroll DOWN and reveal content below the fold.
+            - Use swipe_screen(direction: "down") to scroll UP and reveal content above.
+            - After scrolling, ALWAYS take a new get_screenshot to see the newly visible content.
+            - You may need to scroll multiple times to find what you're looking for.
+            - Common cases: confirmation buttons at bottom of forms, items in long lists, settings deeper in a page.
+
             RULES:
-            - ALWAYS start by taking a screenshot to see the current screen state
             - Write SPECIFIC detection prompts (e.g. "the Uber app icon" not just "icons")
             - If no elements detected, try a different/broader detection prompt
+            - If the element you need isn't visible, SCROLL before giving up
             - To open an app: press_key HOME → press_key SPOTLIGHT → type_text "AppName" → press_key ENTER
             - After completing the task, briefly tell the user what you accomplished (1-2 sentences)
-            - If stuck after 3 attempts, explain what's happening and ask for help
+            - If stuck after 3 attempts, try scrolling or a different approach before asking for help
             """
         ]
 
