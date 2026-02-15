@@ -173,6 +173,47 @@ class LiveModeManager {
         }
     }
 
+    /// Handles text prompts from external sources like Apple Shortcuts.
+    /// This bypasses dictation and sends the provided text directly to the CUA loop.
+    func submitShortcutPrompt(_ prompt: String) {
+        let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        if isSpeaking {
+            speechManager.stopAudio()
+            isSpeaking = false
+        }
+
+        // Keep mic idle while processing a typed/shortcut prompt.
+        speechManager.pauseListening()
+        isRecording = false
+
+        if !isActive {
+            isActive = true
+            errorMessage = nil
+            lastResponse = ""
+            cuaStatus = ""
+            requestId = 0
+            lastElements = []
+            lastScreenshotData = nil
+            openRouter.clearHistory()
+
+            if !screenCapture.isBroadcastActive {
+                BroadcastPicker.shared.tap()
+            }
+        }
+
+        currentTranscription = text
+        speechManager.transcribedText = text
+        isProcessing = true
+        requestId += 1
+        let myId = requestId
+
+        Task {
+            await runCUALoop(userMessage: text, requestId: myId)
+        }
+    }
+
     func stopLiveMode() async {
         guard isActive else { return }
         speechManager.stopAudio()
