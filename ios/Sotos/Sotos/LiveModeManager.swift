@@ -50,7 +50,7 @@ class LiveModeManager {
 
         #if canImport(ActivityKit)
         liveActivity.start()
-        liveActivity.update(text: "", isSpeaking: false, alert: false)
+        liveActivity.update(text: "", isSpeaking: false, phase: "listening", alert: false)
         print("[LiveMode] LiveActivity started")
         #endif
 
@@ -91,7 +91,7 @@ class LiveModeManager {
         let myId = requestId
 
         #if canImport(ActivityKit)
-        liveActivity.update(text: "Thinking…", isSpeaking: true, alert: false)
+        liveActivity.update(text: "Thinking…", isSpeaking: true, phase: "thinking", alert: false)
         #endif
 
         print("[LiveMode] Sending to OpenRouter...")
@@ -122,7 +122,7 @@ class LiveModeManager {
 
     private func handleScreenshotTool(toolCallId: String, requestId myId: Int) async {
         #if canImport(ActivityKit)
-        liveActivity.update(text: "Capturing screen…", isSpeaking: true, alert: false)
+        liveActivity.update(text: "Capturing screen…", isSpeaking: true, phase: "thinking", alert: false)
         #endif
 
         guard screenCapture.isBroadcastActive else {
@@ -160,7 +160,7 @@ class LiveModeManager {
         isProcessing = false
         #if canImport(ActivityKit)
         // Initial alert update to expand the Dynamic Island
-        liveActivity.update(text: text, isSpeaking: false, alert: true)
+        liveActivity.update(text: text, isSpeaking: false, phase: "responding", alert: true)
         #endif
     }
 
@@ -169,7 +169,7 @@ class LiveModeManager {
         lastResponse = "Error: \(error.localizedDescription)"
         isProcessing = false
         #if canImport(ActivityKit)
-        liveActivity.update(text: "Error: \(error.localizedDescription)", isSpeaking: false)
+        liveActivity.update(text: "Error: \(error.localizedDescription)", isSpeaking: false, phase: "responding")
         #endif
     }
 }

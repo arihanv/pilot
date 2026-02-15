@@ -16,7 +16,12 @@ class LiveActivityManager {
 
         nonce = 0
         let attributes = VoiceActivityAttributes()
-        let state = VoiceActivityAttributes.ContentState(agentText: "", isSpeaking: false, nonce: nonce)
+        let state = VoiceActivityAttributes.ContentState(
+            agentText: "",
+            isSpeaking: false,
+            phase: "listening",
+            nonce: nonce
+        )
 
         do {
             activity = try Activity.request(
@@ -30,7 +35,7 @@ class LiveActivityManager {
         }
     }
 
-    func update(text: String, isSpeaking: Bool, alert: Bool = true) {
+    func update(text: String, isSpeaking: Bool, phase: String = "listening", alert: Bool = true) {
         guard let activity else {
             print("[LiveActivity] Update skipped — no active activity")
             return
@@ -40,10 +45,11 @@ class LiveActivityManager {
         let state = VoiceActivityAttributes.ContentState(
             agentText: text,
             isSpeaking: isSpeaking,
+            phase: phase,
             nonce: nonce
         )
 
-        print("[LiveActivity] Updating: speaking=\(isSpeaking), alert=\(alert), nonce=\(nonce), text=\"\(text.prefix(60))\"")
+        print("[LiveActivity] Updating: phase=\(phase), speaking=\(isSpeaking), alert=\(alert), nonce=\(nonce), text=\"\(text.prefix(60))\"")
 
         Task {
             let content = ActivityContent(state: state, staleDate: nil)
