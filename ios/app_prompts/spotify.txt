@@ -1,0 +1,26 @@
+This file describes what typically appears when using Spotify on iOS.
+
+Playing a song or playlist:
+When you open Spotify, you usually see a home screen with recently played content, personalized playlists, and recommendations. A bottom navigation bar typically includes Home, Search, and Your Library. After selecting a playlist or album, a list of tracks appears. Selecting a track starts playback. A mini player bar appears at the bottom showing the current track with play/pause controls.
+
+Searching for music:
+After selecting the Search tab, a search bar appears at the top with browsing categories below. When you type a query, results appear including songs, artists, albums, playlists, and podcasts.
+
+Creating a playlist:
+After selecting Your Library, a list of playlists appears. A Create Playlist button or plus icon allows creating a new playlist. After naming it, you can search for and add songs.
+
+Adding to queue:
+While a track is playing, pressing and holding a song or selecting the more options icon shows an Add to Queue option.
+
+Connecting to a speaker or AirPods:
+In the Now Playing screen, a devices icon appears. Selecting it shows available devices such as AirPods, Bluetooth speakers, or other Spotify Connect devices. Selecting a device transfers playback.
+
+Liking a song:
+In the Now Playing screen or on a track listing, a heart icon appears. Selecting it adds the song to your Liked Songs playlist.
+
+Common situations that may appear:
+- Multiple results with similar names
+- Shuffle mode activating instead of specific track
+- Premium-only content restrictions
+- Playback not starting due to connectivity
+- Podcast vs music content in search results

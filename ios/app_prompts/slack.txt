@@ -1,0 +1,23 @@
+This file describes what typically appears when using Slack on iOS.
+
+Sending a message in a channel:
+When you open Slack, you usually see a list of workspaces and channels. Selecting a channel displays the conversation thread. After selecting a channel, previous messages appear in a vertical list. A message input field appears at the bottom. When you type a message, it appears in the input field above the keyboard. Attachment and formatting options may appear. After pressing send, the message appears in the channel thread.
+
+Sending a direct message:
+After selecting the Direct Messages section, a list of recent DMs appears. You can start a new DM by selecting the compose icon and searching for a person. The DM thread has a text input field at the bottom.
+
+Replying in a thread:
+After selecting a message, a thread view opens on the right or as a new screen. A text input field appears at the bottom of the thread. After typing and sending, the reply appears in the thread and a thread indicator appears on the original message in the channel.
+
+Searching messages:
+A search bar appears at the top of the screen. When you type a query, matching messages, channels, and people appear. Filters such as date range, sender, or channel may be available.
+
+Setting status and availability:
+After selecting your profile icon, options to set a status message and availability appear. You can choose from preset statuses or type a custom one.
+
+Common situations that may appear:
+- Multiple workspaces
+- Thread replies
+- File attachment prompts
+- Permission restrictions
+- Notification preferences per channel

@@ -1,0 +1,27 @@
+This file describes what typically appears when using Safari on iOS.
+
+Browsing the web:
+When you open Safari, you usually see the start page with favorites, frequently visited sites, and a search or URL bar at the top or bottom of the screen. After selecting the search bar, a text input field appears. When you type a query or URL, suggestions from search history, bookmarks, and web search appear below the input. When you select a search result or enter a URL, the web page loads. Navigation controls such as back, forward, share, and tabs are accessible from the toolbar.
+
+Searching for something:
+The address bar doubles as a search bar. When you type keywords, suggestions from your default search engine appear. Selecting a suggestion navigates to the search results page.
+
+Filling out a form:
+On a web page with input fields, selecting a field activates the keyboard. Autofill suggestions for name, email, address, and payment may appear above the keyboard. Selecting a suggestion fills the field.
+
+Managing tabs:
+After selecting the tabs button, open tabs are displayed as a grid or stack. You can switch between tabs, close a tab by swiping, or open a new tab with the plus button.
+
+Managing bookmarks:
+After selecting the share icon, options including Add Bookmark appear. Selecting it saves the current page. The bookmarks icon in the toolbar shows saved bookmarks organized in folders.
+
+Using private browsing:
+In the tab view, a tab group selector may appear. Selecting Private opens a private browsing session where history is not saved.
+
+Common situations that may appear:
+- Pop-up blocker notifications
+- Cookie consent banners on websites
+- Sign-in prompts on websites
+- Multiple open tabs
+- Reader mode availability
+- Download prompts

@@ -1,0 +1,23 @@
+This file describes what typically appears when using iMessage on iOS.
+
+Sending a message:
+When you open Messages, you usually see a list of conversations. Each conversation typically shows a contact name, profile image, and the most recent message preview. After selecting a conversation, you typically see the message thread. The contact name appears at the top, and previous messages are displayed in a chat format. A text input field appears at the bottom of the screen. When you type a message, the text appears in the input field above the keyboard. You may also see options to attach photos, apps, or voice recordings near the input area. After pressing the send button, the message appears in the conversation thread. A delivery status such as "Delivered" or "Read" may appear beneath the message.
+
+Starting a new conversation:
+After selecting the compose button near the top of the conversation list, a new message screen appears. A "To:" field is displayed where you can type a contact name, phone number, or email. Suggestions from your contacts appear as you type. After selecting a recipient, a text input field appears at the bottom to compose your message.
+
+Replying to a specific message:
+After pressing and holding on a message in a conversation, a context menu appears. Options such as Reply, Copy, and more are displayed. Selecting Reply opens an inline reply thread below the original message.
+
+Sending a photo or video:
+In a conversation, selecting the camera or photos icon near the input field opens options to take a photo, record a video, or browse your photo library. After selecting media, a preview appears and a send button is displayed.
+
+Searching messages:
+At the top of the conversation list, a search bar appears. When you type a query, matching conversations and messages are displayed in the results.
+
+Common situations that may appear:
+- Multiple contacts with similar names
+- Group conversations
+- Media attachment prompts
+- Message sending failures due to connection
+- Tapback reactions on messages

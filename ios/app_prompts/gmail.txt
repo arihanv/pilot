@@ -1,0 +1,26 @@
+This file describes what typically appears when using Gmail on iOS.
+
+Composing and sending an email:
+When you open Gmail, you usually see an inbox with a list of emails. A compose button appears, often as a circular button near the bottom of the screen. After selecting compose, a new email screen appears. Fields for recipient, subject, and message body are displayed. When you enter a recipient, suggestions may appear based on contacts. The subject and message body fields accept typed input. After writing the message, a send button appears near the top of the screen. After pressing send, the message is sent and appears in the Sent folder.
+
+Replying to an email:
+After selecting an email from the inbox, the email detail view appears. A reply button appears at the bottom of the email. Selecting it opens a compose screen with the original message quoted below. After typing a reply and pressing send, the reply is sent.
+
+Searching the inbox:
+A search bar appears at the top of the inbox. When you type a query, matching emails are displayed. Results can include sender names, subject lines, and message content.
+
+Adding an attachment:
+In the compose screen, a paperclip or attachment icon appears near the top. Selecting it shows options to attach files from your device, Google Drive, or other sources.
+
+Archiving or deleting an email:
+In the inbox, swiping left or right on an email shows options to archive or delete. In the email detail view, archive and delete icons appear in the toolbar.
+
+Switching accounts:
+Your profile icon appears near the top of the inbox. Selecting it shows a list of linked accounts. You can switch between accounts by selecting a different one.
+
+Common situations that may appear:
+- Multiple recipient suggestions
+- Attachment options
+- Account switching prompts
+- Draft saving automatically
+- Spam and promotion tab sorting

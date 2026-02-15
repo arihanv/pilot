@@ -1,0 +1,26 @@
+This file describes what typically appears when using Reddit on iOS.
+
+Creating a post:
+When you open Reddit, you usually see a feed of posts from joined communities. A create button appears, often near the bottom of the screen. After selecting the create button, you typically see options to choose a community. Once a community is selected, a post creation screen appears. The post creation screen usually displays fields for a title and body text. There may be options to add images, links, or tags. When you enter content, the text appears in the input fields. A button to post appears near the top or bottom of the screen. After posting, the submission appears in the selected community.
+
+Commenting on a post:
+After selecting a post from the feed, the post detail page appears with existing comments below. A text input field or Add Comment button appears. After typing a comment and submitting, the comment appears in the thread.
+
+Upvoting or downvoting:
+Beside each post and comment, upvote and downvote arrows appear. Selecting the upvote arrow highlights it and increases the vote count. Selecting the downvote arrow does the opposite.
+
+Searching for a subreddit or topic:
+A search bar appears at the top of the screen. When you type a query, matching subreddits, posts, and users appear. You can select a subreddit to browse its posts.
+
+Browsing a specific subreddit:
+After navigating to a subreddit, posts are displayed in a feed. Sorting options such as Hot, New, Top, and Rising may appear near the top.
+
+Saving a post:
+After selecting the share or more options icon on a post, a Save option appears. Saved posts can be accessed from your profile.
+
+Common situations that may appear:
+- Community rules prompts
+- Flair selection requirements
+- Moderation review notices
+- Media upload prompts
+- NSFW content warnings

@@ -1,0 +1,23 @@
+This file describes what typically appears when using Telegram on iOS.
+
+Sending a message:
+When you open Telegram, you usually see a list of recent chats. Each chat typically shows a contact or group name, profile image, and the most recent message preview with a timestamp. A search bar may appear at the top of the screen. After selecting a chat, the conversation thread appears. Previous messages are displayed in a chat format. A text input field appears at the bottom of the screen. When you type a message, the text appears in the input field above the keyboard. You may also see options to attach photos, files, location, or stickers near the input area. After pressing the send button, the message appears in the conversation thread.
+
+Starting a new conversation:
+After selecting the compose button, a contact list appears. You can search for a contact by name or username. After selecting a contact, the conversation screen opens.
+
+Making a voice or video call:
+After opening a conversation, phone and video icons appear near the top of the screen. Selecting them starts the respective call type. A call screen appears with mute, speaker, and end call controls.
+
+Searching messages:
+At the top of the chat list, a search bar allows searching across all conversations. You can also search within a specific chat by tapping the contact name and selecting Search.
+
+Joining a channel or group:
+After searching for a channel or group name, results appear. Selecting a result shows a preview with member count and description. A Join button appears at the bottom.
+
+Common situations that may appear:
+- Multiple contacts with similar names
+- Group and channel conversations
+- Media attachment prompts
+- Bot interactions
+- Message editing and deletion options

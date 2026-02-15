@@ -1,0 +1,26 @@
+This file describes what typically appears when using Canvas on iOS.
+
+Viewing and submitting assignments:
+When you open Canvas, you usually see a dashboard with a list of your courses. Each course shows the course name and may display recent announcements or upcoming assignments. After selecting a course, the course page appears with navigation options such as Announcements, Assignments, Discussions, Grades, Modules, and People. After selecting Assignments, a list of assignments appears with title, due date, and submission status. After selecting an assignment, the detail page shows instructions, due date, and a submission area. Options to submit text, upload a file, or enter a URL may appear.
+
+Replying to a discussion:
+After selecting Discussions in a course, a list of discussion topics appears with title and reply count. After selecting a discussion, the thread appears with the prompt and previous replies. A reply input area appears at the bottom. When you type a reply and submit, the response appears in the discussion thread.
+
+Checking grades:
+After selecting Grades in a course, a list of assignments with scores and feedback appears. Selecting an assignment shows detailed grade information and any instructor comments.
+
+Viewing announcements:
+After selecting Announcements in a course, a list of announcements appears sorted by date. Selecting one shows the full announcement text.
+
+Searching for a course or content:
+A search bar may appear on the dashboard. When you type a query, matching courses and content are displayed.
+
+Downloading course materials:
+In Modules or Files within a course, documents and files are listed. Selecting a file opens or downloads it for viewing.
+
+Common situations that may appear:
+- Multiple courses listed
+- Assignment submission type requirements
+- File upload prompts
+- Due date warnings
+- Grade display alongside assignments

@@ -1,0 +1,23 @@
+This file describes what typically appears when using Snapchat on iOS.
+
+Sending a snap:
+When you open Snapchat, you usually see the camera screen. A bottom navigation bar typically includes Map, Chat, Camera, Stories, and Spotlight. After capturing a photo or video, editing tools appear such as text, drawing, stickers, and filters. A send button leads to a recipient selection screen. You can select one or more contacts or add it to your story. A send button appears at the bottom. A snap is sent once a delivery indicator appears beside the contact name in the chat list.
+
+Sending a chat message:
+After selecting the Chat tab, a list of recent conversations appears. Selecting a conversation opens the chat thread. A text input field appears at the bottom. After typing and pressing send, the message appears in the thread.
+
+Viewing a story:
+On the home screen or Chat tab, stories from friends appear as circular icons near the top or in the stories section. Selecting a story plays it. You can tap to skip to the next snap or swipe to move to the next person's story.
+
+Searching for a user:
+A search bar appears at the top of the screen. When you type a name or username, matching accounts appear. You can select a user to view their profile or start a conversation.
+
+Checking the Snap Map:
+After selecting the Map tab, a map appears showing friends' locations as Bitmoji icons. You can zoom and scroll to explore.
+
+Common situations that may appear:
+- Camera and microphone permission prompts
+- Multiple recipients selection
+- Story vs direct send options
+- Snap streak indicators
+- Filter and lens loading

@@ -1,0 +1,24 @@
+This file describes what typically appears when using an airline app on iOS.
+
+Booking a flight:
+When you open an airline app, you usually see a home screen with options such as Book, My Trips, and Check In. Your account information may appear near the top. After selecting Book, you typically see fields to enter departure city, destination city, travel dates, and number of passengers. When you search for flights, a list of available flights appears with departure time, arrival time, duration, and price. After selecting a flight, fare details, seat selection options, and pricing breakdown are displayed. A button to continue leads to passenger information and then payment with total cost and method selection. A final button confirms the booking.
+
+Checking in for a flight:
+After selecting Check In from the home screen, a confirmation number or booking lookup screen appears. After entering details, the check-in process shows seat confirmation and boarding pass generation. A boarding pass is displayed that can be added to Apple Wallet.
+
+Viewing a boarding pass:
+After checking in, the boarding pass is accessible from the home screen or My Trips section. It displays a barcode or QR code, flight details, gate, and seat number.
+
+Checking flight status:
+After selecting a flight from My Trips or a Flight Status option, real-time information appears including departure time, arrival time, gate, and delay notifications.
+
+Changing or cancelling a booking:
+After selecting a booking from My Trips, options to change or cancel appear. Changing shows available alternatives. Cancelling shows refund or credit details. A confirmation screen finalizes the change.
+
+Common situations that may appear:
+- Multiple fare classes
+- Seat selection maps
+- Baggage selection options
+- Payment method prompts
+- Identity verification prompts
+- Gate change notifications

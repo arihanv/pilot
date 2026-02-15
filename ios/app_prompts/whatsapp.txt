@@ -1,0 +1,23 @@
+This file describes what typically appears when using WhatsApp on iOS.
+
+Sending a message:
+When you open WhatsApp, you usually see a list of recent chats. Each chat typically shows a contact or group name, profile image, and the most recent message preview with a timestamp. After selecting a chat, the conversation thread appears. Previous messages are displayed in a chat format with the contact name at the top. A text input field appears at the bottom of the screen. When you type a message, the text appears in the input field above the keyboard. You may also see options to attach photos, documents, location, or voice messages near the input area. After pressing the send button, the message appears in the conversation thread. Delivery indicators such as single check, double check, or blue double check may appear beside the message.
+
+Starting a new conversation:
+After selecting the compose button, a contact list appears. You can search for a contact by name or phone number. After selecting a contact, the conversation screen opens with a text input field.
+
+Making a voice or video call:
+After opening a conversation, phone and video icons appear near the top of the screen. Selecting the phone icon starts a voice call. Selecting the video icon starts a video call. A call screen appears with controls for mute, speaker, and end call.
+
+Sending a voice note:
+In a conversation, pressing and holding the microphone icon near the input field starts recording a voice note. Releasing the button sends the voice note. A playback preview may appear before sending.
+
+Searching messages:
+At the top of the chat list, a search bar appears. When you type a query, matching conversations and messages are displayed. You can also search within a specific conversation by selecting the contact name at the top and choosing Search.
+
+Common situations that may appear:
+- Multiple contacts with similar names
+- Group conversations with many participants
+- Media attachment prompts
+- End-to-end encryption notices
+- Message sending failures due to connection

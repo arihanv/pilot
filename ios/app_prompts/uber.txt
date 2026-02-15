@@ -1,0 +1,23 @@
+This file describes what typically appears when using Uber on iOS.
+
+Booking a ride:
+When you open Uber, you usually see a map or home screen with a prominent destination entry control often labeled like "Where to?". After selecting the destination entry, a planning screen appears with pickup information and a destination input field. When you type a destination, a list of matching places appears with name, address, and distance. After selecting a destination, ride options are shown in a bottom sheet with ride types such as UberX, Comfort, and Black with ETA and price. A payment row and a primary action button to confirm appear. After confirming, a status screen shows "Finding your ride" and then driver details once matched.
+
+Scheduling a ride for later:
+On the home screen, a scheduling control often labeled "Later" or a time selector appears near the destination entry. Selecting it shows date and time pickers. After selecting a time and destination, ride options appear as usual with a Schedule button instead of Request.
+
+Cancelling a ride:
+After a ride is requested or a driver is matched, the trip screen appears. Selecting the trip details or a menu icon shows a Cancel Ride option. A confirmation prompt may appear with a potential cancellation fee.
+
+Checking ride history:
+After selecting the menu or profile icon, an option for Your Trips or Activity appears. Selecting it shows a list of past rides with dates, destinations, and prices.
+
+Rating a driver:
+After a trip is completed, a rating screen appears. Stars for rating and an optional comment field are displayed. A Submit button finalizes the rating.
+
+Common situations that may appear:
+- Destination ambiguity with multiple results
+- Pickup location mismatch
+- No drivers available
+- Payment method prompts or errors
+- Surge pricing notifications

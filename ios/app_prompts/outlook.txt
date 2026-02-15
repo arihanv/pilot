@@ -1,0 +1,26 @@
+This file describes what typically appears when using Outlook on iOS.
+
+Composing and sending an email:
+When you open Outlook, you usually see an inbox listing recent emails. A compose button appears near the bottom of the screen. After selecting compose, a new email screen appears with fields for recipient, subject, and message body. When entering a recipient, suggested contacts appear. Attachments can be added using an attachment icon. After writing the message, a send button appears near the top of the screen. After pressing send, the message is delivered and appears in the Sent folder.
+
+Replying to an email:
+After selecting an email from the inbox, the email detail view appears. A reply button appears at the bottom. Selecting it opens a compose screen with the original message quoted. After typing a reply and pressing send, the reply is sent.
+
+Searching the inbox:
+A search bar appears at the top of the inbox. When you type a query, matching emails are displayed including sender names, subject lines, and content.
+
+Adding an attachment:
+In the compose screen, a paperclip icon appears. Selecting it shows options to attach files from your device or cloud storage.
+
+Managing calendar events:
+A calendar tab appears in the bottom navigation. Selecting it shows your calendar with events. You can create a new event by selecting a time slot or the create button. Fields for title, time, location, and attendees are displayed.
+
+Switching accounts:
+Your profile icon or account indicator appears near the top. Selecting it shows linked accounts. You can switch between email accounts.
+
+Common situations that may appear:
+- Multiple email accounts
+- Attachment prompts
+- Draft saving automatically
+- Sync delays
+- Focused vs Other inbox sorting

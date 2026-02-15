@@ -1,0 +1,26 @@
+This file describes what typically appears when using Robinhood on iOS.
+
+Placing a trade:
+When you open Robinhood, you usually see your portfolio overview with account value and holdings displayed. A search icon appears near the top of the screen. After searching for a stock or asset, a detail page appears showing price charts and asset information. After selecting Trade or Buy/Sell, an order entry screen appears with fields for order type, quantity, and price. When entering order details, the estimated cost or proceeds are displayed. A review button appears. After reviewing the order, a confirmation screen appears with a final button to submit the trade.
+
+Checking portfolio value:
+The home screen displays your total portfolio value at the top with a chart showing performance over time. Below the chart, your holdings are listed with current value and daily change.
+
+Searching for a stock:
+The search icon at the top opens a search bar. When you type a ticker symbol or company name, matching results appear. Selecting a result shows the stock detail page.
+
+Setting a price alert:
+On a stock detail page, an alert or bell icon may appear. Selecting it shows options to set a price target. After entering a price and confirming, the alert is saved.
+
+Viewing a watchlist:
+On the home screen, below your holdings, a watchlist section shows stocks you are tracking with current prices and daily changes.
+
+Transferring funds:
+After selecting the account or profile icon, options for transfers appear. You can initiate a deposit from a linked bank account or withdraw funds.
+
+Common situations that may appear:
+- Market vs limit order selection
+- Fractional share options
+- Buying power prompts
+- Trade confirmation warnings
+- Market closed notifications

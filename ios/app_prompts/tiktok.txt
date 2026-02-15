@@ -1,0 +1,26 @@
+This file describes what typically appears when using TikTok on iOS.
+
+Browsing videos:
+When you open TikTok, you usually see a full-screen video feed. Videos autoplay vertically and you swipe up to see the next video. A bottom navigation bar typically includes Home, Friends, Create, Inbox, and Profile. Engagement options such as like, comment, share, and save appear on the right side of the screen.
+
+Searching for content:
+After selecting the search icon at the top, a text input field appears. When you type a query, suggested searches and matching videos, users, and sounds appear. Results can be filtered by tabs such as Top, Users, Videos, Sounds, and Hashtags.
+
+Posting a video:
+When selecting Create, the camera screen appears with recording options. You can record a video, upload from your camera roll, or use templates. Options for effects, filters, and sound selection are displayed. After recording or selecting content, editing tools appear such as text, stickers, effects, and sound. A Next button leads to a posting screen. On the posting screen, fields for a caption, hashtags, and privacy settings are displayed. A Post button appears to publish the video.
+
+Sending a direct message:
+After selecting the Inbox tab, a list of DM conversations appears. You can select an existing conversation or start a new one. A text input field appears at the bottom.
+
+Following a creator:
+On a video or user profile, a Follow button appears. Selecting it follows the creator and their content appears in your feed.
+
+Saving a video:
+On a video, selecting the share icon shows options including Save Video. The video is saved to your device.
+
+Common situations that may appear:
+- Age-restricted content warnings
+- Sound selection prompts
+- Privacy setting options
+- Camera and microphone permission prompts
+- Video upload progress indicators

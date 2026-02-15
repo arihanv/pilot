@@ -1,0 +1,23 @@
+This file describes what typically appears when using DoorDash on iOS.
+
+Ordering food:
+When you open DoorDash, you usually see a home screen with your delivery address displayed at the top. Below that are restaurant suggestions, categories, and promotions. There is typically a search bar near the top of the screen. After selecting the search bar or browsing a category, you typically see a list of restaurants with name, rating, delivery time, delivery fee, and image. When you select a restaurant, the restaurant page shows the name and a menu organized into categories. After selecting a menu item, a customization screen shows options such as size, add-ons, or special instructions with an Add to Cart button. When items are added, a View Cart button appears. Opening the cart shows items, quantities, subtotal, fees, and total. A checkout button leads to delivery address, instructions, tip, payment, and total cost. A final button places the order.
+
+Reordering a previous order:
+On the home screen or in the Orders tab, recent orders may appear. Selecting a previous order shows an option to reorder. After selecting reorder, the items are added to your cart and you proceed to checkout.
+
+Tracking an active order:
+After placing an order, an order tracking screen appears with preparation status, driver assignment, and estimated delivery time. A map may show the driver's location in real time.
+
+Searching for a restaurant:
+The search bar at the top of the home screen accepts text input. When you type a restaurant name or cuisine, matching results appear.
+
+Applying a promo code:
+On the checkout screen, a field or button for promo codes appears. After entering a code, the discount is applied to the order total.
+
+Common situations that may appear:
+- Restaurants marked as pickup instead of delivery
+- Required item customization before adding to cart
+- Address confirmation prompts
+- Out-of-stock items
+- Payment method prompts
