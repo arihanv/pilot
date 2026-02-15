@@ -2,7 +2,7 @@ import AppIntents
 import Foundation
 
 private enum ShortcutBridge {
-    static let appGroup = "group.dev.ethan.Sotos"
+    static let appGroup = "group.arihan.sotos"
     static let queueKey = "shortcut_prompt_queue"
 }
 
