@@ -7,6 +7,7 @@ Endpoints:
   GET  /status    — check if device is connected
   POST /command   — {"command": "TYPE Hello"}
   POST /commands  — {"commands": ["TYPE Hi", "ENTER"], "delay": 0.3}
+  POST /unlock    — {"passcode": "123456"} — wake + type passcode + enter
   WS   /ws        — ESP32 device channel
 """
 
@@ -111,6 +112,49 @@ async def send_commands(payload: dict):
     return {"ok": True, "results": results}
 
 
+@app.post("/unlock")
+async def unlock(payload: dict):
+    passcode = payload.get("passcode", "").strip() or os.environ.get(
+        "IPHONE_PASSCODE", ""
+    )
+    if not passcode:
+        return JSONResponse(
+            {
+                "error": "missing 'passcode' (set IPHONE_PASSCODE env var or pass in body)"
+            },
+            status_code=400,
+        )
+    if not device_ws:
+        return JSONResponse({"error": "no device connected"}, status_code=503)
+
+    device_id = list(device_ws.keys())[0]
+    ws = device_ws[device_id]
+    queue = pending_responses[device_id]
+
+    steps = [("ENTER", 0), ("ENTER", 0), (f"TYPE {passcode}", 0), ("ENTER", 0.0)]
+
+    results = []
+    for idx, (cmd, delay) in enumerate(steps):
+        while not queue.empty():
+            try:
+                queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        try:
+            await ws.send_json({"type": "command", "command": cmd})
+            response = await asyncio.wait_for(queue.get(), timeout=5.0)
+            results.append({"command": cmd, "response": response})
+        except asyncio.TimeoutError:
+            results.append({"command": cmd, "response": "timeout"})
+        except Exception as e:
+            results.append({"command": cmd, "error": str(e)})
+            break
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+    return {"ok": True, "action": "unlock", "results": results}
+
+
 async def handle_device_ws(ws: WebSocket, path: str):
     """Shared WebSocket handler for ESP32 device connections."""
     await ws.accept()
@@ -149,6 +193,7 @@ async def websocket_ws(ws: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
+
     port = int(os.environ.get("PORT", 10000))
     print(f"Starting server on port {port}")
     print("WebSocket endpoint: /ws")

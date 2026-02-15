@@ -14,9 +14,10 @@ Sandbox lifetime is capped at 24h by Modal.
 
 import modal
 import sys
+from dotenv import dotenv_values
 
 APP_NAME = "sotos-controller"
-SANDBOX_NAME = "sotos-ws-2"
+SANDBOX_NAME = "sotos-ws-4"
 INTERNAL_PORT = 10000
 
 app = modal.App.lookup(APP_NAME, create_if_missing=True)
@@ -56,9 +57,18 @@ def print_tunnel_info(sb):
     return None
 
 
+def load_env():
+    """Load .env file and return as dict."""
+    env = dotenv_values(".env")
+    return {k: v for k, v in env.items() if v}
+
+
 def create_sandbox():
     """Create a new sandbox with the WebSocket server."""
     print("Creating sandbox...")
+    env = load_env()
+    if env:
+        print(f"  Env vars: {', '.join(env.keys())}")
 
     with modal.enable_output():
         sb = modal.Sandbox.create(
@@ -68,6 +78,7 @@ def create_sandbox():
             unencrypted_ports=[INTERNAL_PORT],
             timeout=86400,       # 24 hours max
             name=SANDBOX_NAME,
+            secrets=[modal.Secret.from_dict(env)] if env else [],
         )
 
     print(f"Sandbox created: {sb.object_id}")

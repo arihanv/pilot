@@ -121,7 +121,17 @@ String executeCommand(String cmd) {
 
   // --- Keyboard ---
   if (cmdUpper.startsWith("TYPE ")) {
-    Keyboard.print(cmd.substring(5));
+    String text = cmd.substring(5);
+    for (unsigned int i = 0; i < text.length(); i++) {
+      char ch = text.charAt(i);
+      Keyboard.press(ch);
+      delay(35);
+      Keyboard.release(ch);
+      // Give iOS lockscreen time to consume each HID report.
+      delay(140);
+    }
+    // Extra settle time so the final character is not raced by ENTER.
+    delay(180);
     return "OK: typed";
   }
   else if (cmdUpper.startsWith("KEY ")) {
@@ -141,7 +151,10 @@ String executeCommand(String cmd) {
     return "OK: released all";
   }
   else if (cmdUpper == "ENTER") {
-    Keyboard.write(KEY_RETURN);
+    Keyboard.press(KEY_RETURN);
+    delay(35);
+    Keyboard.release(KEY_RETURN);
+    delay(120);
     return "OK: enter";
   }
   else if (cmdUpper == "BACKSPACE") {
@@ -312,7 +325,11 @@ void connectWebSocket() {
   Serial.print(WS_PATH);
   Serial.println();
 
-  webSocket.begin(WS_HOST, WS_PORT, WS_PATH);
+  if (WS_USE_SSL) {
+    webSocket.beginSSL(WS_HOST, WS_PORT, WS_PATH);
+  } else {
+    webSocket.begin(WS_HOST, WS_PORT, WS_PATH);
+  }
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
 }
@@ -325,9 +342,9 @@ void setup() {
 
   // Start BLE HID first (priority)
   Serial.println("[BLE] Starting...");
-  Keyboard.deviceName = "sotos";
+  Keyboard.deviceName = "sotos-arihan";
   Keyboard.begin();
-  Serial.println("[BLE] Advertising as 'sotos'");
+  Serial.println("[BLE] Advertising as 'sotos-arihan'");
 
   // Init WiFi mode but don't connect yet (let BLE advertise first)
   WiFi.mode(WIFI_STA);
