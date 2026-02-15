@@ -6,46 +6,41 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		0FAA16C82F413B9C00B09D45 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 0FAEBFA22F41378B003D8CD6 /* FluidAudio */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
-		0FAEBF932F413789003D8CD6 /* LocalVoice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LocalVoice.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0FAA172F2F41490D00B09D45 /* Sotos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sotos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		0FAEBF952F413789003D8CD6 /* LocalVoice */ = {
+		0FAA17312F41490D00B09D45 /* Sotos */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = LocalVoice;
+			path = Sotos;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		0FAEBF902F413789003D8CD6 /* Frameworks */ = {
+		0FAA172C2F41490D00B09D45 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0FAA16C82F413B9C00B09D45 /* FluidAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0FAEBF8A2F413789003D8CD6 = {
+		0FAA17262F41490D00B09D45 = {
 			isa = PBXGroup;
 			children = (
-				0FAEBF952F413789003D8CD6 /* LocalVoice */,
-				0FAEBF942F413789003D8CD6 /* Products */,
+				0FAA17312F41490D00B09D45 /* Sotos */,
+				0FAA17302F41490D00B09D45 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		0FAEBF942F413789003D8CD6 /* Products */ = {
+		0FAA17302F41490D00B09D45 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0FAEBF932F413789003D8CD6 /* LocalVoice.app */,
+				0FAA172F2F41490D00B09D45 /* Sotos.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -53,68 +48,64 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		0FAEBF922F413789003D8CD6 /* LocalVoice */ = {
+		0FAA172E2F41490D00B09D45 /* Sotos */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0FAEBF9E2F41378B003D8CD6 /* Build configuration list for PBXNativeTarget "LocalVoice" */;
+			buildConfigurationList = 0FAA173A2F41490E00B09D45 /* Build configuration list for PBXNativeTarget "Sotos" */;
 			buildPhases = (
-				0FAEBF8F2F413789003D8CD6 /* Sources */,
-				0FAEBF902F413789003D8CD6 /* Frameworks */,
-				0FAEBF912F413789003D8CD6 /* Resources */,
+				0FAA172B2F41490D00B09D45 /* Sources */,
+				0FAA172C2F41490D00B09D45 /* Frameworks */,
+				0FAA172D2F41490D00B09D45 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				0FAEBF952F413789003D8CD6 /* LocalVoice */,
+				0FAA17312F41490D00B09D45 /* Sotos */,
 			);
-			name = LocalVoice;
+			name = Sotos;
 			packageProductDependencies = (
-				0FAEBFA22F41378B003D8CD6 /* FluidAudio */,
 			);
-			productName = LocalVoice;
-			productReference = 0FAEBF932F413789003D8CD6 /* LocalVoice.app */;
+			productName = Sotos;
+			productReference = 0FAA172F2F41490D00B09D45 /* Sotos.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		0FAEBF8B2F413789003D8CD6 /* Project object */ = {
+		0FAA17272F41490D00B09D45 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
-					0FAEBF922F413789003D8CD6 = {
+					0FAA172E2F41490D00B09D45 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
 			};
-			buildConfigurationList = 0FAEBF8E2F413789003D8CD6 /* Build configuration list for PBXProject "LocalVoice" */;
+			buildConfigurationList = 0FAA172A2F41490D00B09D45 /* Build configuration list for PBXProject "Sotos" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 0FAEBF8A2F413789003D8CD6;
+			mainGroup = 0FAA17262F41490D00B09D45;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				0FAEBFA12F41378B003D8CD6 /* XCRemoteSwiftPackageReference "FluidAudio" */,
-			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 0FAEBF942F413789003D8CD6 /* Products */;
+			productRefGroup = 0FAA17302F41490D00B09D45 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				0FAEBF922F413789003D8CD6 /* LocalVoice */,
+				0FAA172E2F41490D00B09D45 /* Sotos */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		0FAEBF912F413789003D8CD6 /* Resources */ = {
+		0FAA172D2F41490D00B09D45 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -124,7 +115,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		0FAEBF8F2F413789003D8CD6 /* Sources */ = {
+		0FAA172B2F41490D00B09D45 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -134,7 +125,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		0FAEBF9C2F41378B003D8CD6 /* Debug */ = {
+		0FAA17382F41490E00B09D45 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -198,7 +189,7 @@
 			};
 			name = Debug;
 		};
-		0FAEBF9D2F41378B003D8CD6 /* Release */ = {
+		0FAA17392F41490E00B09D45 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -255,7 +246,7 @@
 			};
 			name = Release;
 		};
-		0FAEBF9F2F41378B003D8CD6 /* Debug */ = {
+		0FAA173B2F41490E00B09D45 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -265,8 +256,6 @@
 				DEVELOPMENT_TEAM = 83G3TY5SUX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LocalVoice needs microphone access to transcribe your speech.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow in order to use the app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -277,7 +266,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.LocalVoice;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -289,7 +278,7 @@
 			};
 			name = Debug;
 		};
-		0FAEBFA02F41378B003D8CD6 /* Release */ = {
+		0FAA173C2F41490E00B09D45 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -299,8 +288,6 @@
 				DEVELOPMENT_TEAM = 83G3TY5SUX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LocalVoice needs microphone access to transcribe your speech.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow in order to use the app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -311,7 +298,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.LocalVoice;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -326,44 +313,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0FAEBF8E2F413789003D8CD6 /* Build configuration list for PBXProject "LocalVoice" */ = {
+		0FAA172A2F41490D00B09D45 /* Build configuration list for PBXProject "Sotos" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0FAEBF9C2F41378B003D8CD6 /* Debug */,
-				0FAEBF9D2F41378B003D8CD6 /* Release */,
+				0FAA17382F41490E00B09D45 /* Debug */,
+				0FAA17392F41490E00B09D45 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0FAEBF9E2F41378B003D8CD6 /* Build configuration list for PBXNativeTarget "LocalVoice" */ = {
+		0FAA173A2F41490E00B09D45 /* Build configuration list for PBXNativeTarget "Sotos" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0FAEBF9F2F41378B003D8CD6 /* Debug */,
-				0FAEBFA02F41378B003D8CD6 /* Release */,
+				0FAA173B2F41490E00B09D45 /* Debug */,
+				0FAA173C2F41490E00B09D45 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		0FAEBFA12F41378B003D8CD6 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/FluidInference/FluidAudio.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.7.9;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		0FAEBFA22F41378B003D8CD6 /* FluidAudio */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0FAEBFA12F41378B003D8CD6 /* XCRemoteSwiftPackageReference "FluidAudio" */;
-			productName = FluidAudio;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 0FAEBF8B2F413789003D8CD6 /* Project object */;
+	rootObject = 0FAA17272F41490D00B09D45 /* Project object */;
 }

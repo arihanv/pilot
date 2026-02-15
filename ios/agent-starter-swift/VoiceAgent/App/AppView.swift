@@ -6,6 +6,9 @@ struct AppView: View {
     @EnvironmentObject private var localMedia: LocalMedia
 
     @State private var chat: Bool = false
+    #if canImport(ActivityKit)
+    @State private var liveActivity = LiveActivityManager()
+    #endif
     @FocusState private var keyboardFocus: Bool
     @Namespace private var namespace
 
@@ -16,12 +19,6 @@ struct AppView: View {
             } else {
                 start()
             }
-
-            #if !os(visionOS)
-            if session.isConnected, !chat {
-                DynamicIslandOverlay()
-            }
-            #endif
 
             errors()
         }
@@ -60,6 +57,21 @@ struct AppView: View {
                 .animation(.default, value: localMedia.error?.localizedDescription)
         #if os(iOS)
             .sensoryFeedback(.impact, trigger: session.isConnected)
+        #endif
+        #if canImport(ActivityKit)
+            .onChange(of: session.isConnected) { _, connected in
+                if connected {
+                    liveActivity.start()
+                } else {
+                    liveActivity.end()
+                }
+            }
+            .onChange(of: session.messages) { _, _ in
+                updateLiveActivity()
+            }
+            .onChange(of: session.agent.agentState) { _, _ in
+                updateLiveActivity()
+            }
         #endif
     }
 
@@ -107,6 +119,23 @@ struct AppView: View {
             }
         #endif
     }
+
+    #if canImport(ActivityKit)
+    private func updateLiveActivity() {
+        guard session.isConnected else { return }
+        var text = ""
+        for message in session.messages.reversed() {
+            if case let .agentTranscript(t) = message.content {
+                let trimmed = t.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    text = trimmed
+                    break
+                }
+            }
+        }
+        liveActivity.update(text: text, isSpeaking: session.agent.agentState == .speaking)
+    }
+    #endif
 
     private func agentListening() -> some View {
         ZStack {
