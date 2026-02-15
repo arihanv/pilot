@@ -1,6 +1,5 @@
 import Foundation
 import AVFoundation
-import UIKit
 
 @MainActor
 @Observable
@@ -23,9 +22,7 @@ class LiveModeManager {
     private let speechManager = SpeechManager()
     private let openRouter: OpenRouterService
     private let screenCapture = ScreenCaptureManager()
-    private let deviceDetector = DeviceDetector()
-    #if canImport(ActivityKit)
-    #endif
+    let deviceDetector = DeviceDetector()
     private var requestId = 0
 
     // Cartesia TTS
