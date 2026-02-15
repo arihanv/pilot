@@ -1,94 +1,153 @@
 import SwiftUI
-import ReplayKit
 
 struct ContentView: View {
     @State private var manager = LiveModeManager(apiKey: Config.openRouterAPIKey)
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
+            ScrollView {
+                VStack(spacing: 14) {
+                    statusHeader
 
-                // Status icon
+                    if manager.isActive, manager.isBroadcastActive {
+                        infoCard {
+                            HStack(spacing: 8) {
+                                Image(systemName: "record.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("Screen Broadcast Active")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.green)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                        }
+                    }
+
+                    if manager.isActive, !manager.speechText.isEmpty {
+                        infoCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("You", systemImage: "person.wave.2")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Text(manager.speechText)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                    }
+
+                    if !manager.cuaStatus.isEmpty {
+                        infoCard {
+                            HStack(spacing: 8) {
+                                ProgressView().scaleEffect(0.9)
+                                Text(manager.cuaStatus)
+                                    .font(.footnote)
+                                    .foregroundStyle(.orange)
+                                    .lineLimit(2)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    if !manager.lastResponse.isEmpty {
+                        infoCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Assistant", systemImage: "sparkles")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.blue)
+                                Text(manager.lastResponse)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                    }
+
+                    if manager.isProcessing {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Processing…")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if manager.isSpeaking {
+                        HStack(spacing: 6) {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .symbolEffect(.variableColor.iterative, isActive: true)
+                            Text("Speaking…")
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.blue)
+                    }
+
+                    deviceSection
+
+                    if let error = manager.errorMessage {
+                        infoCard {
+                            Text(error)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                }
+                .frame(maxWidth: 430)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Sotos")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(.systemGroupedBackground), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
+            .preferredColorScheme(.light)
+            .animation(.default, value: manager.isActive)
+            .animation(.default, value: manager.isProcessing)
+            .animation(.default, value: manager.isSpeaking)
+            .animation(.default, value: manager.cuaStatus)
+            .task { await manager.deviceDetector.refresh() }
+            .safeAreaInset(edge: .bottom) {
+                actionButtons
+                    .frame(maxWidth: 430)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
+                    .background(Color(.systemGroupedBackground))
+            }
+        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+    }
+
+    private var statusHeader: some View {
+        infoCard {
+            VStack(spacing: 10) {
                 Image(systemName: manager.isActive ? "waveform.circle.fill" : "mic.circle")
-                    .font(.system(size: 72))
-                    .foregroundStyle(manager.isActive ? .cyan : .secondary)
+                    .font(.system(size: 52))
+                    .foregroundStyle(manager.isActive ? .blue : .secondary)
                     .symbolEffect(.pulse, isActive: manager.isActive && !manager.isProcessing)
                     .contentTransition(.symbolEffect(.replace))
 
                 Text(statusText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+        }
+    }
 
-                // Broadcast picker – visible when live mode is on
-                if manager.isActive {
-                    BroadcastButton(isBroadcastActive: manager.isBroadcastActive)
-                }
-
-                // Live partial transcription
-                if manager.isActive {
-                    let text = manager.speechText
-                    if !text.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("You", systemImage: "person.wave.2")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            Text(text)
-                                .font(.body)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                        .padding(.horizontal)
-                    }
-                }
-
-                // Last assistant response
-                if !manager.lastResponse.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("Assistant", systemImage: "sparkles")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.cyan)
-                        Text(manager.lastResponse)
-                            .font(.body)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(.cyan.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .padding(.horizontal)
-                }
-
-                if manager.isProcessing {
-                    ProgressView()
-                        .padding(.top, 4)
-                }
-
-                if manager.isSpeaking {
-                    HStack(spacing: 6) {
-                        Image(systemName: "speaker.wave.2.fill")
-                            .symbolEffect(.variableColor.iterative, isActive: true)
-                        Text("Speaking…")
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.cyan)
-                    .padding(.top, 4)
-                }
-
-                Spacer()
-
-                // Error message
-                if let error = manager.errorMessage {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-
-                // Device picker
-                if manager.deviceDetector.availableDevices.count > 1 {
+    @ViewBuilder
+    private var deviceSection: some View {
+        if manager.deviceDetector.availableDevices.count > 1 {
+            infoCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Device")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
                     Picker("Device", selection: Binding(
                         get: { manager.deviceDetector.selectedDevice ?? "" },
                         set: { manager.deviceDetector.selectedDevice = $0 }
@@ -98,65 +157,65 @@ struct ContentView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .padding(.horizontal, 24)
-                } else if let device = manager.connectedDevice {
-                    HStack(spacing: 6) {
-                        Circle().fill(.green).frame(width: 8, height: 8)
-                        Text(device)
-                            .font(.caption.monospaced())
-                    }
-                    .foregroundStyle(.secondary)
                 }
-
-                // Phone actions
-                Button {
-                    manager.sendPhoneCommands([
-                        "HOME", "SPOTLIGHT", "TYPE Messages", "ENTER"
-                    ])
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "message.fill")
-                        Text("Open Messages")
-                    }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(.green)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                }
-                .padding(.horizontal, 24)
-
-                // Live Mode toggle button
-                Button {
-                    Task {
-                        if manager.isActive {
-                            await manager.stopLiveMode()
-                        } else {
-                            await manager.startLiveMode()
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: manager.isActive ? "stop.fill" : "play.fill")
-                        Text(manager.isActive ? "Stop Live Mode" : "Start Live Mode")
-                    }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(manager.isActive ? .red : .cyan)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 16)
             }
-            .navigationTitle("Sotos")
-            .animation(.default, value: manager.isActive)
-            .animation(.default, value: manager.isProcessing)
-            .animation(.default, value: manager.isSpeaking)
-            .task { await manager.deviceDetector.refresh() }
+        } else if let device = manager.connectedDevice {
+            infoCard {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(.green)
+                        .frame(width: 8, height: 8)
+                    Text(device)
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
+    }
+
+    private var actionButtons: some View {
+        VStack(spacing: 10) {
+            Button {
+                manager.sendPhoneCommandsFireAndForget([
+                    "HOME", "SPOTLIGHT", "TYPE Messages", "ENTER"
+                ])
+            } label: {
+                Label("Open Messages", systemImage: "message.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(ProminentActionButtonStyle(color: .green))
+
+            Button {
+                Task {
+                    if manager.isActive {
+                        await manager.stopLiveMode()
+                    } else {
+                        await manager.startLiveMode()
+                    }
+                }
+            } label: {
+                Label(
+                    manager.isActive ? "Stop Live Mode" : "Start Live Mode",
+                    systemImage: manager.isActive ? "stop.fill" : "play.fill"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(ProminentActionButtonStyle(color: manager.isActive ? .red : .blue))
+        }
+    }
+
+    private func infoCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
     }
 
     private var statusText: String {
@@ -166,53 +225,18 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Broadcast Button
+private struct ProminentActionButtonStyle: ButtonStyle {
+    let color: Color
 
-/// Programmatically triggers the system broadcast picker by finding the
-/// internal UIButton inside RPSystemBroadcastPickerView and sending a tap.
-struct BroadcastButton: View {
-    var isBroadcastActive: Bool
-
-    var body: some View {
-        Button {
-            BroadcastPicker.shared.tap()
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: isBroadcastActive
-                      ? "record.circle.fill"
-                      : "dot.radiowaves.left.and.right")
-                Text(isBroadcastActive
-                     ? "Screen Broadcast Active"
-                     : "Start Screen Broadcast")
-            }
-            .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(isBroadcastActive ? .green.opacity(0.15) : .cyan.opacity(0.15))
-            .foregroundStyle(isBroadcastActive ? .green : .cyan)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(color.opacity(configuration.isPressed ? 0.8 : 1))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
-/// Singleton that holds a hidden RPSystemBroadcastPickerView and can
-/// programmatically trigger its internal button.
-final class BroadcastPicker {
-    static let shared = BroadcastPicker()
-
-    private let picker: RPSystemBroadcastPickerView = {
-        let p = RPSystemBroadcastPickerView()
-        p.preferredExtension = "dev.ethan.Sotos.BroadcastExtension"
-        p.showsMicrophoneButton = false
-        return p
-    }()
-
-    func tap() {
-        for subview in picker.subviews {
-            if let button = subview as? UIButton {
-                button.sendActions(for: .allTouchEvents)
-                return
-            }
-        }
-    }
-}

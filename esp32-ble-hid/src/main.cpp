@@ -11,7 +11,7 @@ const char* WIFI_PASS = "arihanv1";
 // --- Cloudflare tunnel (plain HTTP/WS on port 80) ---
 // Dev: run server locally + cloudflared tunnel --url http://localhost:8000
 // Named tunnel: cloudflared tunnel run --url http://localhost:8000 general
-const char* WS_HOST = "claire.ariv.sh";
+const char* WS_HOST = "alias-showed-mason-atlas.trycloudflare.com";
 const uint16_t WS_PORT = 80;
 const char* WS_PATH = "/ws";
 const bool WS_USE_SSL = false;
@@ -21,10 +21,29 @@ String inputBuffer = "";
 unsigned long lastWifiCheck = 0;
 unsigned long lastHeartbeat = 0;
 bool wsConnected = false;
+// Digitizer absolute coordinate range: 0 – 32767
+const uint16_t DIGI_MAX = 32767;
 
 // Forward declaration
 void handleCommand(String cmd);
 String executeCommand(String cmd);
+
+bool parsePercentToken(String token, float& outPercent) {
+  token.trim();
+  if (!token.endsWith("%")) return false;
+  String numeric = token.substring(0, token.length() - 1);
+  numeric.trim();
+  if (numeric.length() == 0) return false;
+
+  outPercent = numeric.toFloat();
+  if (outPercent < 0.0f || outPercent > 100.0f) return false;
+  return true;
+}
+
+// Convert percentage (0-100) to digitizer coordinate (0-32767)
+uint16_t percentToDigitizer(float pct) {
+  return (uint16_t)(pct * DIGI_MAX / 100.0f + 0.5f);
+}
 
 // --- Send response back via WebSocket ---
 void sendWsResponse(const char* command, const char* response) {
@@ -213,6 +232,91 @@ String executeCommand(String cmd) {
     Mouse.click(MOUSE_LEFT);
     return "OK: click";
   }
+  // --- Absolute move by percentage via digitizer (e.g. MOVE_ABS 50% 50%) ---
+  else if (cmdUpper.startsWith("MOVE_ABS ")) {
+    int spaceIdx = cmdUpper.indexOf(' ', 9);
+    if (spaceIdx > 0) {
+      String xToken = cmdUpper.substring(9, spaceIdx);
+      String yToken = cmdUpper.substring(spaceIdx + 1);
+      float xPercent = 0.0f;
+      float yPercent = 0.0f;
+      if (!parsePercentToken(xToken, xPercent) || !parsePercentToken(yToken, yPercent)) {
+        return "ERR: bad MOVE_ABS args (need MOVE_ABS x% y%, 0-100%)";
+      }
+
+      uint16_t dx = percentToDigitizer(xPercent);
+      uint16_t dy = percentToDigitizer(yPercent);
+      Mouse.moveAbsolute(dx, dy);
+
+      String resp = "OK: move_abs ";
+      resp += xToken;
+      resp += ",";
+      resp += yToken;
+      resp += " => digi ";
+      resp += dx;
+      resp += ",";
+      resp += dy;
+      return resp;
+    }
+    return "ERR: bad MOVE_ABS args (need MOVE_ABS x% y%)";
+  }
+  // --- Absolute tap by percentage via digitizer (e.g. TAP_ABS 50% 50%) ---
+  else if (cmdUpper.startsWith("TAP_ABS ")) {
+    int spaceIdx = cmdUpper.indexOf(' ', 8);
+    if (spaceIdx > 0) {
+      String xToken = cmdUpper.substring(8, spaceIdx);
+      String yToken = cmdUpper.substring(spaceIdx + 1);
+      float xPercent = 0.0f;
+      float yPercent = 0.0f;
+      if (!parsePercentToken(xToken, xPercent) || !parsePercentToken(yToken, yPercent)) {
+        return "ERR: bad TAP_ABS args (need TAP_ABS x% y%, 0-100%)";
+      }
+
+      uint16_t dx = percentToDigitizer(xPercent);
+      uint16_t dy = percentToDigitizer(yPercent);
+      Mouse.clickAbsolute(dx, dy);
+
+      String resp = "OK: tap_abs ";
+      resp += xToken;
+      resp += ",";
+      resp += yToken;
+      resp += " => digi ";
+      resp += dx;
+      resp += ",";
+      resp += dy;
+      return resp;
+    }
+    return "ERR: bad TAP_ABS args (need TAP_ABS x% y%)";
+  }
+  // --- Legacy pixel TAP (still uses relative mouse for backward compat) ---
+  else if (cmdUpper.startsWith("TAP ")) {
+    int spaceIdx = cmdUpper.indexOf(' ', 4);
+    if (spaceIdx > 0) {
+      int targetX = cmdUpper.substring(4, spaceIdx).toInt();
+      int targetY = cmdUpper.substring(spaceIdx + 1).toInt();
+
+      // Best-effort relative move (not pixel-perfect)
+      for (int i = 0; i < 30; i++) { Mouse.move(-127, -127); delay(2); }
+      delay(10);
+      int rx = targetX, ry = targetY;
+      while (rx > 0 || ry > 0) {
+        int ddx = (rx > 127) ? 127 : rx;
+        int ddy = (ry > 127) ? 127 : ry;
+        Mouse.move(ddx, ddy);
+        rx -= ddx; ry -= ddy;
+        delay(2);
+      }
+      delay(15);
+      Mouse.click(MOUSE_LEFT);
+
+      String resp = "OK: tap ";
+      resp += targetX;
+      resp += ",";
+      resp += targetY;
+      return resp;
+    }
+    return "ERR: bad TAP args (need TAP x y)";
+  }
   else if (cmdUpper == "CLICK_RIGHT") {
     Mouse.click(MOUSE_RIGHT);
     return "OK: right click";
@@ -351,9 +455,9 @@ void setup() {
 
   // Start BLE HID first (priority)
   Serial.println("[BLE] Starting...");
-  Keyboard.deviceName = "sotos-ethan";
+  Keyboard.deviceName = "sotos-james";
   Keyboard.begin();
-  Serial.println("[BLE] Advertising as 'sotos-arihan'");
+  Serial.println("[BLE] Advertising as 'sotos-james'");
 
   // Init WiFi mode but don't connect yet (let BLE advertise first)
   WiFi.mode(WIFI_STA);

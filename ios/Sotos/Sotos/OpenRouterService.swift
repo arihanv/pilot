@@ -4,65 +4,130 @@ class OpenRouterService {
     private let apiKey: String
     private let model = "google/gemini-3-flash-preview"
     private let endpoint = URL(string: "https://openrouter.ai/api/v1/chat/completions")!
+    private let maxConversationMessages = 15
 
-    /// Conversation history – uses [String: Any] to support multimodal & tool messages.
+    /// Conversation history — [String: Any] to support multimodal & tool messages.
     private var conversationHistory: [[String: Any]] = []
 
-    // MARK: - Tool definitions
+    // MARK: - CUA Tool Definitions
 
     private let tools: [[String: Any]] = [
         [
             "type": "function",
             "function": [
                 "name": "get_screenshot",
-                "description": "Capture a screenshot of the user's current screen. Use this when the user asks about what's on their screen, what they're looking at, needs help with something visible, or references anything visual.",
+                "description": "Capture a screenshot of the phone screen and detect UI elements using vision AI. Provide a specific detection prompt describing what to look for. The screenshot will be annotated with numbered colored bounding boxes.",
                 "parameters": [
                     "type": "object",
-                    "properties": [:] as [String: Any],
-                    "required": [] as [String]
+                    "properties": [
+                        "detect": [
+                            "type": "string",
+                            "description": "What to detect on screen. Be specific: 'app icons', 'the Uber request ride button', 'text input fields', 'all buttons and links'. Sent to a vision model for element detection."
+                        ] as [String: Any]
+                    ] as [String: Any],
+                    "required": ["detect"]
                 ] as [String: Any]
             ] as [String: Any]
         ],
         [
             "type": "function",
             "function": [
-                "name": "send_phone_commands",
-                "description": """
-                Send HID commands to control the user's iPhone via an ESP32 BLE device. \
-                Commands are executed sequentially. Use this to type text, press keys, \
-                navigate the phone, tap/swipe, scroll, and use iOS shortcuts. \
-                Available commands: \
-                Keyboard: TYPE <text>, KEY <char>, KEYDOWN <char>, KEYUP <char>, RELEASEALL, \
-                ENTER, BACKSPACE, TAB, ESC, SPACE, UP, DOWN, LEFT, RIGHT. \
-                Mouse: MOVE <x> <y>, CLICK, CLICK_RIGHT, SCROLL <amount>, \
-                SWIPE <x1> <y1> <x2> <y2> <steps>. \
-                iOS shortcuts: VOL_UP, VOL_DOWN, HOME, LOCK, APPSWITCHER, SPOTLIGHT. \
-                Example: to open Messages, send ["HOME", "SPOTLIGHT", "TYPE Messages", "ENTER"].
-                """,
+                "name": "tap_element",
+                "description": "Tap on a UI element detected in the last screenshot. Use the element's numbered ID from the annotated screenshot.",
                 "parameters": [
                     "type": "object",
                     "properties": [
-                        "commands": [
-                            "type": "array",
-                            "items": ["type": "string"] as [String: Any],
-                            "description": "Array of command strings to execute sequentially on the phone."
-                        ] as [String: Any],
-                        "delay": [
-                            "type": "number",
-                            "description": "Delay in seconds between commands. Defaults to 0."
+                        "element_id": [
+                            "type": "integer",
+                            "description": "The numbered element ID from the annotated screenshot."
                         ] as [String: Any]
                     ] as [String: Any],
-                    "required": ["commands"] as [String]
+                    "required": ["element_id"]
+                ] as [String: Any]
+            ] as [String: Any]
+        ],
+        [
+            "type": "function",
+            "function": [
+                "name": "type_text",
+                "description": "Type text using the keyboard. Text is typed character by character. Make sure a text field is focused first.",
+                "parameters": [
+                    "type": "object",
+                    "properties": [
+                        "text": [
+                            "type": "string",
+                            "description": "The text to type."
+                        ] as [String: Any]
+                    ] as [String: Any],
+                    "required": ["text"]
+                ] as [String: Any]
+            ] as [String: Any]
+        ],
+        [
+            "type": "function",
+            "function": [
+                "name": "swipe_screen",
+                "description": "Swipe gesture on the phone screen. Use for scrolling content, navigating pages, or dismissing views.",
+                "parameters": [
+                    "type": "object",
+                    "properties": [
+                        "direction": [
+                            "type": "string",
+                            "enum": ["up", "down", "left", "right"],
+                            "description": "Swipe direction. 'up' scrolls content down, 'down' scrolls content up."
+                        ] as [String: Any]
+                    ] as [String: Any],
+                    "required": ["direction"]
+                ] as [String: Any]
+            ] as [String: Any]
+        ],
+        [
+            "type": "function",
+            "function": [
+                "name": "press_key",
+                "description": "Press a special key or iOS shortcut on the phone.",
+                "parameters": [
+                    "type": "object",
+                    "properties": [
+                        "key": [
+                            "type": "string",
+                            "enum": ["HOME", "ENTER", "BACKSPACE", "SPOTLIGHT", "APPSWITCHER", "LOCK", "ESC", "TAB", "SPACE"],
+                            "description": "Key to press. HOME = home screen, SPOTLIGHT = search, APPSWITCHER = app switcher."
+                        ] as [String: Any]
+                    ] as [String: Any],
+                    "required": ["key"]
+                ] as [String: Any]
+            ] as [String: Any]
+        ],
+        [
+            "type": "function",
+            "function": [
+                "name": "wait_seconds",
+                "description": "Wait for a duration. Use after tapping to let animations complete or pages load before taking the next screenshot.",
+                "parameters": [
+                    "type": "object",
+                    "properties": [
+                        "seconds": [
+                            "type": "number",
+                            "description": "Seconds to wait (0.5 to 5)."
+                        ] as [String: Any]
+                    ] as [String: Any],
+                    "required": ["seconds"]
                 ] as [String: Any]
             ] as [String: Any]
         ]
     ]
 
-    // MARK: - Response type
+    // MARK: - Response Types
 
     enum ChatResponse {
         case text(String)
         case toolCall(id: String, name: String, arguments: [String: Any])
+    }
+
+    enum ToolResultContent {
+        case text(String)
+        case textWithImage(text: String, imageBase64: String)
     }
 
     // MARK: - Init
@@ -74,56 +139,49 @@ class OpenRouterService {
 
     // MARK: - Public API
 
-    /// Send a user text message. Returns either a text response or a tool-call request.
+    /// Send a user text message.
     func sendMessage(_ text: String) async throws -> ChatResponse {
-        print("[OpenRouter] Sending message: \"\(text.prefix(80))\"")
+        print("[OpenRouter] User: \"\(text.prefix(80))\"")
         conversationHistory.append(["role": "user", "content": text])
+        trimConversationHistory()
         return try await callAPI()
     }
 
-    /// Complete a get_screenshot tool call by providing the captured image.
-    /// Returns the model's final text description.
-    func sendScreenshotResult(toolCallId: String, imageBase64: String) async throws -> String {
-        // Tool result (text-only, per OpenAI spec)
-        conversationHistory.append([
-            "role": "tool",
-            "tool_call_id": toolCallId,
-            "content": "Screenshot captured successfully."
-        ])
-
-        // Follow-up user message carrying the actual image
-        conversationHistory.append([
-            "role": "user",
-            "content": [
-                [
-                    "type": "image_url",
-                    "image_url": ["url": "data:image/jpeg;base64,\(imageBase64)"]
-                ] as [String: Any],
-                [
-                    "type": "text",
-                    "text": "Here is the screenshot from my screen. Describe what you see and answer my question."
-                ] as [String: Any]
-            ] as [[String: Any]]
-        ])
-
-        let response = try await callAPI()
-        switch response {
+    /// Send a tool execution result back to the model.
+    func sendToolResult(toolCallId: String, content: ToolResultContent) async throws -> ChatResponse {
+        switch content {
         case .text(let text):
-            return text
-        case .toolCall(_, _, _):
-            // Shouldn't happen right after a screenshot, but handle gracefully
-            return "I captured your screen but couldn't process it. Please try again."
-        }
-    }
+            conversationHistory.append([
+                "role": "tool",
+                "tool_call_id": toolCallId,
+                "content": text
+            ])
 
-    /// Complete a generic tool call by providing a text result.
-    /// Returns the model's follow-up response.
-    func sendToolResult(toolCallId: String, result: String) async throws -> ChatResponse {
-        conversationHistory.append([
-            "role": "tool",
-            "tool_call_id": toolCallId,
-            "content": result
-        ])
+        case .textWithImage(let text, let imageBase64):
+            // Strip old images to keep payload size manageable
+            stripOldImages()
+
+            conversationHistory.append([
+                "role": "tool",
+                "tool_call_id": toolCallId,
+                "content": text
+            ])
+            conversationHistory.append([
+                "role": "user",
+                "content": [
+                    [
+                        "type": "image_url",
+                        "image_url": ["url": "data:image/jpeg;base64,\(imageBase64)"]
+                    ] as [String: Any],
+                    [
+                        "type": "text",
+                        "text": "Above is the annotated screenshot with numbered element bounding boxes. Refer to elements by their number when using tap_element."
+                    ] as [String: Any]
+                ] as [[String: Any]]
+            ])
+        }
+        trimConversationHistory()
+
         return try await callAPI()
     }
 
@@ -134,19 +192,48 @@ class OpenRouterService {
 
     // MARK: - Private
 
+    /// Replace older image messages with a text placeholder to keep payloads small.
+    private func stripOldImages() {
+        for i in 0..<conversationHistory.count {
+            if let content = conversationHistory[i]["content"] as? [[String: Any]],
+               content.contains(where: { ($0["type"] as? String) == "image_url" }) {
+                conversationHistory[i] = [
+                    "role": conversationHistory[i]["role"] as? String ?? "user",
+                    "content": "[Previous screenshot removed — see latest screenshot for current state]"
+                ]
+            }
+        }
+    }
+
+    private func trimConversationHistory() {
+        if conversationHistory.count > maxConversationMessages {
+            conversationHistory = Array(conversationHistory.suffix(maxConversationMessages))
+        }
+    }
+
     private func callAPI() async throws -> ChatResponse {
         let systemMessage: [String: Any] = [
             "role": "system",
             "content": """
-            You are a helpful voice assistant displayed in an iPhone's Dynamic Island. \
-            Keep responses very concise (1-2 sentences max). Be direct and helpful. \
-            You can see the user's screen using the get_screenshot tool, and you can \
-            control the user's iPhone using the send_phone_commands tool. \
-            When the user asks you to open apps, type text, navigate, scroll, swipe, \
-            or perform any action on their phone, use send_phone_commands. \
-            You can chain multiple commands in one call for complex actions. \
-            For example, to open an app: ["HOME", "SPOTLIGHT", "TYPE AppName", "ENTER"]. \
-            After executing commands, briefly confirm what you did.
+            You are a phone automation agent that controls an iPhone through screen vision and touch actions. \
+            You accomplish tasks by repeatedly taking screenshots with element detection, deciding what to \
+            interact with, and executing actions.
+
+            WORKFLOW:
+            1. Call get_screenshot with a specific detection prompt to see the current screen
+            2. Examine the annotated screenshot — elements have numbered colored bounding boxes
+            3. Call tap_element with the element number, or use type_text, swipe_screen, press_key
+            4. Use wait_seconds(1) after actions for animations/loading
+            5. Call get_screenshot again to verify the result and see the new state
+            6. Repeat until the task is complete
+
+            RULES:
+            - ALWAYS start by taking a screenshot to see the current screen state
+            - Write SPECIFIC detection prompts (e.g. "the Uber app icon" not just "icons")
+            - If no elements detected, try a different/broader detection prompt
+            - To open an app: press_key HOME → press_key SPOTLIGHT → type_text "AppName" → press_key ENTER
+            - After completing the task, briefly tell the user what you accomplished (1-2 sentences)
+            - If stuck after 3 attempts, explain what's happening and ask for help
             """
         ]
 
@@ -156,8 +243,8 @@ class OpenRouterService {
         let body: [String: Any] = [
             "model": model,
             "messages": messages,
-            "max_tokens": 4000,
-            "temperature": 1.0,
+            "max_tokens": 4096,
+            "temperature": 0.2,
             "tools": tools
         ]
 
@@ -166,22 +253,21 @@ class OpenRouterService {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        request.timeoutInterval = 30
+        request.timeoutInterval = 60
 
-        print("[OpenRouter] POST \(endpoint) (\(conversationHistory.count) msgs in history)")
+        print("[OpenRouter] POST (\(conversationHistory.count) msgs)")
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
-            print("[OpenRouter] Non-HTTP response received")
             throw ServiceError.parse
         }
 
-        print("[OpenRouter] Response status: \(http.statusCode), bytes: \(data.count)")
+        print("[OpenRouter] \(http.statusCode), \(data.count) bytes")
 
         guard http.statusCode == 200 else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            print("[OpenRouter] Error body: \(errorBody.prefix(200))")
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+            print("[OpenRouter] ❌ HTTP \(http.statusCode) Error body:\n\(errorBody.prefix(800))")
             throw ServiceError.api(errorBody)
         }
 
@@ -190,52 +276,44 @@ class OpenRouterService {
               let first = choices.first,
               let message = first["message"] as? [String: Any]
         else {
-            let raw = String(data: data, encoding: .utf8) ?? "<binary>"
-            print("[OpenRouter] Parse failed. Raw: \(raw.prefix(300))")
             throw ServiceError.parse
         }
 
-        // ── Tool call response ──
+        // ── Tool call ──
         if let toolCalls = message["tool_calls"] as? [[String: Any]],
            let firstCall = toolCalls.first,
            let function = firstCall["function"] as? [String: Any],
            let name = function["name"] as? String,
            let id = firstCall["id"] as? String {
 
-            print("[OpenRouter] Tool call: \(name) (id: \(id))")
+            print("[OpenRouter] Tool: \(name) (id: \(id))")
 
-            // Parse arguments JSON string
             var args: [String: Any] = [:]
-            if let argsString = function["arguments"] as? String,
-               let argsData = argsString.data(using: .utf8),
+            if let argsStr = function["arguments"] as? String,
+               let argsData = argsStr.data(using: .utf8),
                let parsed = try? JSONSerialization.jsonObject(with: argsData) as? [String: Any] {
                 args = parsed
             }
 
-            // Record the assistant's tool-call message in history
+            // Record assistant tool-call in history
             var assistantMsg: [String: Any] = ["role": "assistant", "tool_calls": toolCalls]
             if let content = message["content"] as? String {
                 assistantMsg["content"] = content
             }
             conversationHistory.append(assistantMsg)
+            trimConversationHistory()
 
             return .toolCall(id: id, name: name, arguments: args)
         }
 
-        // ── Regular text response ──
+        // ── Text response ──
         guard let content = message["content"] as? String else {
-            let raw = String(data: data, encoding: .utf8) ?? "<binary>"
-            print("[OpenRouter] No content in message. Raw: \(raw.prefix(300))")
             throw ServiceError.parse
         }
 
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         conversationHistory.append(["role": "assistant", "content": trimmed])
-
-        // Keep history manageable
-        if conversationHistory.count > 20 {
-            conversationHistory = Array(conversationHistory.suffix(16))
-        }
+        trimConversationHistory()
 
         print("[OpenRouter] Response: \"\(trimmed.prefix(80))\"")
         return .text(trimmed)

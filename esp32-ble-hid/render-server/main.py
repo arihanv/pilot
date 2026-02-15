@@ -95,7 +95,7 @@ async def send_command(payload: dict):
 
     try:
         await ws.send_json({"type": "command", "command": cmd})
-        response = await asyncio.wait_for(queue.get(), timeout=5.0)
+        response = await asyncio.wait_for(queue.get(), timeout=15.0)
         return {"ok": True, "device": device_name, "command": cmd, "response": response}
     except asyncio.TimeoutError:
         return {"ok": True, "device": device_name, "command": cmd, "response": "sent (timeout)"}
@@ -128,7 +128,7 @@ async def send_commands(payload: dict):
                 break
         try:
             await ws.send_json({"type": "command", "command": cmd})
-            response = await asyncio.wait_for(queue.get(), timeout=5.0)
+            response = await asyncio.wait_for(queue.get(), timeout=15.0)
             results.append({"command": cmd, "response": response})
         except asyncio.TimeoutError:
             results.append({"command": cmd, "response": "timeout"})

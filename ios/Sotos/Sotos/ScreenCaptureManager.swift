@@ -22,6 +22,14 @@ class ScreenCaptureManager {
         return FileManager.default.fileExists(atPath: flagURL.path)
     }
 
+    /// Remove the broadcast_active flag file to clear stale state.
+    func clearBroadcastFlag() {
+        guard let containerURL = sharedContainerURL else { return }
+        let flagURL = containerURL.appendingPathComponent("broadcast_active")
+        try? FileManager.default.removeItem(at: flagURL)
+        print("[ScreenCapture] Cleared broadcast_active flag")
+    }
+
     /// Returns the latest JPEG screenshot from the broadcast, or nil.
     func takeScreenshot() -> Data? {
         guard let url = screenshotURL,
