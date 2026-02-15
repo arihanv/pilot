@@ -87,8 +87,19 @@ struct ContentView: View {
                         .padding(.horizontal)
                 }
 
-                // Connected device indicator
-                if let device = manager.connectedDevice {
+                // Device picker
+                if manager.deviceDetector.availableDevices.count > 1 {
+                    Picker("Device", selection: Binding(
+                        get: { manager.deviceDetector.selectedDevice ?? "" },
+                        set: { manager.deviceDetector.selectedDevice = $0 }
+                    )) {
+                        ForEach(manager.deviceDetector.availableDevices, id: \.self) { name in
+                            Text(name).tag(name)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 24)
+                } else if let device = manager.connectedDevice {
                     HStack(spacing: 6) {
                         Circle().fill(.green).frame(width: 8, height: 8)
                         Text(device)
@@ -144,6 +155,7 @@ struct ContentView: View {
             .animation(.default, value: manager.isActive)
             .animation(.default, value: manager.isProcessing)
             .animation(.default, value: manager.isSpeaking)
+            .task { await manager.deviceDetector.refresh() }
         }
     }
 

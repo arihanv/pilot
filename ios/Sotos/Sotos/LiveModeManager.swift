@@ -16,8 +16,8 @@ class LiveModeManager {
 
     /// Whether the broadcast extension is currently streaming the device screen.
     var isBroadcastActive: Bool { screenCapture.isBroadcastActive }
-    /// Current detected target device for phone commands.
-    var connectedDevice: String? { deviceDetector.detectedDevice }
+    /// Current selected target device for phone commands.
+    var connectedDevice: String? { deviceDetector.selectedDevice }
 
     private let speechManager = SpeechManager()
     private let openRouter: OpenRouterService
@@ -48,7 +48,7 @@ class LiveModeManager {
                 request.httpMethod = "POST"
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 var body: [String: Any] = ["commands": commands, "delay": delay]
-                if let device = deviceDetector.detectedDevice {
+                if let device = deviceDetector.selectedDevice {
                     body["device"] = device
                     print("[Phone] Targeting device: \(device)")
                 }
