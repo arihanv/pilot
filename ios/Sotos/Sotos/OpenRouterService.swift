@@ -108,8 +108,8 @@ class OpenRouterService {
         let body: [String: Any] = [
             "model": model,
             "messages": messages,
-            "max_tokens": 300,
-            "temperature": 0.7,
+            "max_tokens": 4000,
+            "temperature": 1.0,
             "tools": tools
         ]
 

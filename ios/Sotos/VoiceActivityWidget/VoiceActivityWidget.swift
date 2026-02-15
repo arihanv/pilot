@@ -16,9 +16,9 @@ struct VoiceActivityLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: iconName(for: context.state))
+                    Image(systemName: context.state.isSpeaking ? "waveform" : "ear.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(iconColor(for: context.state))
+                        .foregroundStyle(.cyan)
                         .contentTransition(.symbolEffect(.replace))
                         .frame(width: 28, height: 28)
                 }
@@ -34,9 +34,9 @@ struct VoiceActivityLiveActivity: Widget {
                         .padding(.top, 4)
                 }
             } compactLeading: {
-                Image(systemName: iconName(for: context.state))
+                Image(systemName: context.state.isSpeaking ? "waveform" : "ear.fill")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(iconColor(for: context.state))
+                    .foregroundStyle(.cyan)
                     .contentTransition(.symbolEffect(.replace))
             } compactTrailing: {
                 Text(displayText(context.state))
@@ -45,9 +45,9 @@ struct VoiceActivityLiveActivity: Widget {
                     .truncationMode(.tail)
                     .frame(maxWidth: 120)
             } minimal: {
-                Image(systemName: iconName(for: context.state))
+                Image(systemName: context.state.isSpeaking ? "waveform" : "ear.fill")
                     .font(.system(size: 12))
-                    .foregroundStyle(iconColor(for: context.state))
+                    .foregroundStyle(.cyan)
             }
         }
     }
@@ -56,34 +56,12 @@ struct VoiceActivityLiveActivity: Widget {
         state.agentText.isEmpty ? "Listening…" : state.agentText
     }
 
-    private func iconName(for state: VoiceActivityAttributes.ContentState) -> String {
-        switch state.phase {
-        case "thinking":
-            return "hourglass.circle.fill"
-        case "responding":
-            return "message.fill"
-        default:
-            return "mic.fill"
-        }
-    }
-
-    private func iconColor(for state: VoiceActivityAttributes.ContentState) -> Color {
-        switch state.phase {
-        case "thinking":
-            return .orange
-        case "responding":
-            return .green
-        default:
-            return .cyan
-        }
-    }
-
     private func lockScreenView(_ state: VoiceActivityAttributes.ContentState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: iconName(for: state))
+                Image(systemName: state.isSpeaking ? "waveform" : "ear.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(iconColor(for: state))
+                    .foregroundStyle(.cyan)
                     .contentTransition(.symbolEffect(.replace))
 
                 Text("Sotos")

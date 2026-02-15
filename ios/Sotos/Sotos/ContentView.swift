@@ -65,6 +65,17 @@ struct ContentView: View {
                         .padding(.top, 4)
                 }
 
+                if manager.isSpeaking {
+                    HStack(spacing: 6) {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .symbolEffect(.variableColor.iterative, isActive: true)
+                        Text("Speaking…")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.cyan)
+                    .padding(.top, 4)
+                }
+
                 Spacer()
 
                 // Error message
@@ -103,6 +114,7 @@ struct ContentView: View {
             .navigationTitle("Sotos")
             .animation(.default, value: manager.isActive)
             .animation(.default, value: manager.isProcessing)
+            .animation(.default, value: manager.isSpeaking)
         }
     }
 
