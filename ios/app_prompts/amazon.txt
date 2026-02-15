@@ -1,0 +1,26 @@
+This file describes what typically appears when using Amazon on iOS.
+
+Purchasing an item:
+When you open Amazon, you usually see a home screen with a search bar displayed at the top. Below that are product recommendations, categories, and promotions. You may also see your delivery location displayed near the top of the screen. After selecting the search bar, you typically see a text input field and recent or suggested searches. When you type a product name, a list of matching products appears with image, name, rating, price, and shipping information. When you select a product, the product detail page shows a larger image, title, price, rating, and delivery estimate with options such as size or color. After selecting options, buttons such as "Add to Cart" or "Buy Now" are shown. When you open the cart, items, quantities, subtotal, and delivery information are displayed. A checkout button leads to shipping address, delivery speed, payment method, and order total. A final button places the order.
+
+Tracking an order:
+After selecting the Orders tab or menu, a list of recent orders appears with status, delivery date, and items. Selecting an order shows detailed tracking information with shipping progress.
+
+Searching for a product:
+The search bar at the top accepts text input. When you type a product name, matching results appear. Filter options for price, rating, Prime eligibility, and category may appear.
+
+Checking order history:
+After selecting the Orders tab, past orders are listed with dates, items, and prices. You can select an order to view details or initiate a return.
+
+Returning an item:
+After selecting an order, a Return or Replace option may appear. Selecting it shows return reasons and refund options. A confirmation screen finalizes the return request.
+
+Adding to a wishlist:
+On a product detail page, an Add to List button appears. Selecting it shows your wishlists. You can add the item to an existing list or create a new one.
+
+Common situations that may appear:
+- Multiple similar products with slight variations
+- Required option selection before purchase
+- Shipping speed selection
+- Address confirmation prompts
+- Payment method prompts

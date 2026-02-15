@@ -1,0 +1,30 @@
+This file describes what typically appears when using Settings on iOS.
+
+Navigating settings:
+When you open Settings, you usually see a scrollable list of categories. Your Apple ID profile appears at the top, followed by sections such as Airplane Mode, Wi-Fi, Bluetooth, Cellular, Notifications, Sounds, Focus, Screen Time, and General.
+
+Connecting to Wi-Fi:
+After selecting Wi-Fi, a list of available networks appears. The currently connected network is shown at the top with a checkmark. You can select a different network to connect. A password entry field appears for secured networks.
+
+Managing Bluetooth devices:
+After selecting Bluetooth, a list of paired and available devices appears. You can toggle Bluetooth on or off and connect to a device by selecting it.
+
+Managing notifications:
+After selecting Notifications, a list of apps appears. Selecting an app shows notification preferences such as alerts, sounds, badges, and lock screen display.
+
+Managing storage:
+After selecting General and then iPhone Storage, a breakdown of storage usage appears. Apps are listed by size. You can select an app to offload it or delete its data.
+
+Updating software:
+After selecting General and then Software Update, the current iOS version is displayed. If an update is available, details and a Download and Install button appear.
+
+Managing app permissions:
+After selecting Privacy & Security, categories such as Location Services, Camera, Microphone, and Photos appear. Selecting a category shows which apps have access and you can toggle permissions.
+
+Common situations that may appear:
+- Wi-Fi password entry prompts
+- Bluetooth pairing confirmation
+- Software update notifications
+- Storage management prompts
+- Accessibility options
+- Privacy and security settings

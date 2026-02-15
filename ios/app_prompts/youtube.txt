@@ -1,0 +1,26 @@
+This file describes what typically appears when using YouTube on iOS.
+
+Searching for and watching a video:
+When you open YouTube, you usually see a home feed with recommended videos. A search icon appears near the top of the screen. After selecting the search icon, a text input field appears. When you type a query, a list of suggested searches and matching videos appears. When you select a video, the video player screen appears. The video plays at the top, and the title, channel name, and engagement options appear below. Below the video details, recommended videos are displayed in a scrollable list.
+
+Subscribing to a channel:
+On a video page or channel page, a Subscribe button appears near the channel name. Selecting it subscribes you to the channel. A notification bell icon may appear to manage notification preferences.
+
+Liking a video:
+Below the video player, a thumbs up icon appears. Selecting it likes the video. A thumbs down icon is also available.
+
+Leaving a comment:
+Below the video details, a comments section appears. Selecting it opens the comments list with a text input field. After typing a comment and submitting, the comment appears in the thread.
+
+Adding to a playlist:
+Below the video player, a Save icon appears. Selecting it shows a list of your playlists. You can add the video to an existing playlist or create a new one.
+
+Searching within results:
+After performing a search, filter options such as Upload Date, Type, Duration, and Sort By may appear to refine results.
+
+Common situations that may appear:
+- Multiple videos with similar titles
+- Advertisements before playback
+- Age-restricted content prompts
+- Sign-in prompts for interaction
+- Premium upsell prompts

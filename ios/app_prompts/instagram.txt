@@ -1,0 +1,26 @@
+This file describes what typically appears when using Instagram on iOS.
+
+Posting a story:
+When you open Instagram, you usually see the home feed with posts from accounts you follow. A navigation bar appears at the bottom with icons such as Home, Search, Create, Reels, and Profile. After selecting the create button or swiping right, the camera screen appears. This screen typically shows a camera view with options such as Story, Post, or Reel near the bottom. When selecting Story, you can capture a photo or video using the camera or access media from your camera roll. After selecting or capturing content, editing tools appear. These may include text, stickers, drawing tools, filters, and music. When editing is complete, a button labeled "Your Story" or similar appears at the bottom.
+
+Posting to the feed:
+After selecting the Create button, options for Post, Story, or Reel appear. Selecting Post opens the photo library. After selecting one or more images, a Next button leads to filters and editing. Another Next button leads to the caption screen with fields for caption, tags, and location. A Share button publishes the post.
+
+Sending a direct message:
+After selecting the messenger icon near the top right of the home feed, a list of DM conversations appears. You can select an existing conversation or search for a user. A text input field appears at the bottom of the conversation.
+
+Searching for a user or hashtag:
+After selecting the Search tab, a search bar and trending content appear. When you type a query, matching accounts, hashtags, and places are displayed.
+
+Commenting on a post:
+Below a post in the feed, a comment icon appears. Selecting it opens the comments section with a text input field at the bottom. After typing and pressing Post, the comment appears in the thread.
+
+Liking a post:
+Double tapping a post or selecting the heart icon below it likes the post. The heart icon fills in to indicate it is liked.
+
+Common situations that may appear:
+- Multiple posting modes such as Post, Story, or Reel
+- Sticker and text placement adjustments
+- Privacy options such as Close Friends
+- Media permission prompts
+- Suggested accounts and content

@@ -1,0 +1,26 @@
+This file describes what typically appears when using Twitter/X on iOS.
+
+Posting a tweet:
+When you open the app, you usually see the home timeline with posts from accounts you follow. A compose button appears, often as a floating icon near the bottom of the screen. After selecting the compose button, a text input screen appears. A text field is displayed at the top along with options to attach media, polls, or links. When you type a message, the text appears in the input field. A character counter may appear. After selecting the Post button, the tweet appears in your timeline.
+
+Replying to a tweet:
+Below each post in the timeline, icons for reply, retweet, like, and share appear. Selecting the reply icon opens a compose screen with the original post quoted above. After typing a reply and selecting Post, the reply appears in the thread.
+
+Retweeting or quoting:
+Selecting the retweet icon shows options for Retweet or Quote. Selecting Retweet reposts immediately. Selecting Quote opens a compose screen where you can add your own text above the original post.
+
+Searching for a topic or user:
+After selecting the Search tab, a search bar and trending topics appear. When you type a query, matching accounts, hashtags, and posts are displayed. Tabs for Top, Latest, People, and Media filter the results.
+
+Sending a direct message:
+After selecting the Messages tab, a list of DM conversations appears. You can start a new conversation by selecting the compose icon and searching for a user. A text input field appears at the bottom of the conversation.
+
+Liking a post:
+Selecting the heart icon below a post likes it. The heart fills in to indicate it is liked.
+
+Common situations that may appear:
+- Draft posts
+- Media attachment prompts
+- Account selection for multiple profiles
+- Posting errors due to connection
+- Content warnings on sensitive posts

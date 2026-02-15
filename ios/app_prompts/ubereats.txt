@@ -1,0 +1,26 @@
+This file describes what typically appears when using Uber Eats on iOS.
+
+Ordering food:
+When you open Uber Eats, you usually see a home screen with your delivery address displayed near the top. Below that are restaurant suggestions, cuisine categories, and promotions. A search bar typically appears at the top of the screen. After selecting the search bar or browsing a category, you see a list of restaurants with name, rating, delivery time, delivery fee, and image. When you select a restaurant, the restaurant page shows the name and menu organized into categories. After selecting a menu item, a customization screen shows options with an Add to Order button. When items are added, a View Cart button appears. The cart shows items, quantities, subtotal, taxes, fees, and total. A checkout button leads to delivery address, instructions, tip, payment, and total. A final button places the order.
+
+Reordering a previous order:
+On the home screen or Orders tab, recent orders may appear. Selecting a previous order shows an option to reorder. Items are added to your cart for checkout.
+
+Tracking an active order:
+After placing an order, a tracking screen appears with preparation status, driver assignment, and estimated delivery time. A live map may show the driver's location.
+
+Searching for a restaurant:
+The search bar at the top accepts text input. When you type a restaurant name or cuisine, matching results appear with filters for delivery time, price range, and rating.
+
+Scheduling a delivery:
+On the checkout screen, a delivery time option may appear. Selecting it shows time slots for scheduling a later delivery.
+
+Rating a restaurant:
+After an order is delivered, a rating prompt may appear. Stars for rating and an optional comment field are displayed.
+
+Common situations that may appear:
+- Pickup options displayed instead of delivery
+- Required item customization before adding to cart
+- Address confirmation prompts
+- Promotions or discounts applied at checkout
+- Payment method prompts

@@ -1,0 +1,23 @@
+This file describes what typically appears when using Venmo on iOS.
+
+Sending money:
+When you open Venmo, you usually see a social-style feed showing recent payments. A prominent action control to Pay/Request appears, often a blue floating button. After selecting it, a search bar appears to find people by name, username, phone, or email. After selecting a recipient, a screen with a numeric keypad for entering amount and a note input appears. A Pay or Request selector is displayed. After entering the amount and note, selecting Pay shows a confirmation with privacy selector and funding source. A final button confirms the payment.
+
+Requesting money:
+The flow is similar to sending money. After selecting a recipient and entering an amount and note, selecting Request instead of Pay sends a payment request to the recipient.
+
+Viewing transaction history:
+After selecting your profile or the Me tab, a list of your past transactions appears with dates, amounts, recipients, and notes.
+
+Scanning a QR code:
+A scan icon may appear on the home screen or pay screen. Selecting it opens the camera to scan another user's Venmo QR code for quick payment.
+
+Searching for a person:
+On the pay screen, the search bar accepts names, usernames, phone numbers, or email addresses. Matching contacts appear as you type.
+
+Common situations that may appear:
+- Wrong recipient selected with similar names
+- Insufficient funds or funding source issue
+- Identity verification prompts
+- Privacy default not matching user preference
+- Payment marked as pending rather than completed

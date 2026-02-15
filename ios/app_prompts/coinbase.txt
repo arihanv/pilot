@@ -1,0 +1,26 @@
+This file describes what typically appears when using Coinbase on iOS.
+
+Buying or selling cryptocurrency:
+When you open Coinbase, you usually see a portfolio overview with asset balances displayed. A search or trade button appears near the top of the screen. After selecting an asset, a detail page appears showing price charts and market information. After selecting Buy or Sell, an order screen appears with fields to enter amount. When entering an amount, the estimated total cost or proceeds are displayed. A preview button appears. After previewing the transaction, a confirmation screen appears with a final button to complete the trade.
+
+Sending crypto to a wallet:
+After selecting an asset, a Send option appears. A screen to enter a wallet address or scan a QR code is displayed. After entering the address and amount, a confirmation screen shows network fees and total. A final button sends the transaction.
+
+Receiving crypto:
+After selecting an asset, a Receive option appears. Your wallet address and a QR code are displayed. You can copy the address or share the QR code.
+
+Searching for an asset:
+A search bar at the top accepts text input. When you type a cryptocurrency name or ticker, matching results appear.
+
+Viewing transaction history:
+After selecting an asset or your profile, a transaction history list appears showing past buys, sells, sends, and receives with dates and amounts.
+
+Setting a price alert:
+On an asset detail page, an alert or notification option may appear. After entering a target price, the alert is saved.
+
+Common situations that may appear:
+- Identity verification prompts
+- Network fee breakdown
+- Price fluctuation warnings
+- Funding source selection
+- Two-factor authentication prompts

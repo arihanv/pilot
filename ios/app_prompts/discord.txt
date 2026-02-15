@@ -1,0 +1,23 @@
+This file describes what typically appears when using Discord on iOS.
+
+Sending a message in a channel:
+When you open Discord, you usually see a list of servers and direct messages. Selecting a server displays channels. After selecting a channel, the message thread appears. Previous messages are displayed in a vertical list. A text input field appears at the bottom of the screen. When you type a message, the text appears above the keyboard. Attachment and emoji options may appear near the input field. After pressing send, the message appears in the channel thread.
+
+Sending a direct message:
+After selecting the Direct Messages section, a list of recent DMs appears. You can select an existing conversation or start a new one by searching for a user. The DM thread looks similar to a channel with a text input field at the bottom.
+
+Joining a voice channel:
+In a server, voice channels are listed alongside text channels. Selecting a voice channel connects you to the voice chat. Controls for mute, deafen, and disconnect appear at the bottom of the screen.
+
+Searching messages:
+A search icon appears near the top of the screen. Selecting it opens a search bar where you can type keywords. Results show matching messages across the current server or DMs. Filters such as from a specific user or in a specific channel may be available.
+
+Reacting to a message:
+After pressing and holding on a message, a reaction bar appears with frequently used emoji. You can select an emoji or browse for more. The reaction appears below the message.
+
+Common situations that may appear:
+- Multiple channels within a server
+- Permission restrictions in certain channels
+- Media attachment prompts
+- Connection interruptions
+- Thread replies within channels

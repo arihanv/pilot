@@ -87,6 +87,25 @@ struct ContentView: View {
                         .padding(.horizontal)
                 }
 
+                // Phone actions
+                Button {
+                    manager.sendPhoneCommands([
+                        "HOME", "SPOTLIGHT", "TYPE Messages", "ENTER"
+                    ])
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "message.fill")
+                        Text("Open Messages")
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(.green)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+                .padding(.horizontal, 24)
+
                 // Live Mode toggle button
                 Button {
                     Task {

@@ -1,0 +1,24 @@
+This file describes what typically appears when using Zoom on iOS.
+
+Joining a meeting:
+When you open Zoom, you usually see a home screen with options such as New Meeting, Join, Schedule, and Share Screen. After selecting Join, a screen with a field to enter a Meeting ID or personal link name appears. A field to enter your display name may also appear. Options for enabling audio or turning off video before joining may be displayed. A button to join the meeting appears at the bottom. After joining, the meeting interface appears with participant video tiles or speaker view.
+
+Starting a new meeting:
+After selecting New Meeting, options such as enabling video appear. After starting, the meeting interface appears with controls for mute, video, participants, chat, share content, and leave meeting.
+
+Scheduling a meeting:
+After selecting Schedule, a form appears with fields for meeting name, date, time, duration, and options such as passcode and waiting room. A Save or Done button creates the scheduled meeting.
+
+Sharing screen during a meeting:
+During an active meeting, a Share Content button appears in the controls. Selecting it shows options to share your screen, photos, files, or a whiteboard. A broadcast prompt may appear for screen sharing.
+
+Using chat during a meeting:
+During an active meeting, a Chat button appears in the controls. Selecting it opens a chat panel where you can type messages to all participants or specific individuals.
+
+Common situations that may appear:
+- Waiting room prompts before entering
+- Audio connection selection
+- Camera and microphone permission prompts
+- Host approval requirements
+- Meeting password entry
+- Recording consent notifications

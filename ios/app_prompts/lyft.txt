@@ -1,0 +1,23 @@
+This file describes what typically appears when using Lyft on iOS.
+
+Booking a ride:
+When you open Lyft, you usually see a map or home screen with a destination entry area displayed near the top. You may also see recent destinations or ride suggestions. After selecting the destination entry area, you typically see a planning screen with your pickup location and a field to enter your destination. When you type a destination, a list of matching places appears with name and address. After selecting a destination, ride options are shown in a panel with ride types such as Standard and XL with price estimate and arrival time. When a ride type is selected, a confirmation button appears to request the ride. When requested, a status screen shows "Finding a driver" and then driver details once matched.
+
+Scheduling a ride:
+On the planning screen, a scheduling option may appear to set a pickup time for later. After selecting a date and time, ride options appear with a Schedule button.
+
+Cancelling a ride:
+After a ride is requested, the trip screen shows a menu or options button. Selecting it shows a Cancel Ride option. A confirmation prompt may appear with a cancellation fee warning.
+
+Checking ride history:
+After selecting the menu or profile icon, a Ride History option appears. Selecting it shows a list of past rides with dates, destinations, and prices.
+
+Adding a stop:
+On the planning screen or during an active ride, an option to add a stop may appear. Selecting it opens a destination input for the additional stop.
+
+Common situations that may appear:
+- Multiple destinations with similar names
+- Pickup location requiring adjustment
+- No drivers available
+- Payment method prompts
+- Wait and Save options

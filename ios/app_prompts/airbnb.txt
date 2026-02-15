@@ -1,0 +1,23 @@
+This file describes what typically appears when using Airbnb on iOS.
+
+Booking a stay:
+When you open Airbnb, you usually see a home screen with a search bar near the top. Below that are destination suggestions, categories, and featured listings. After selecting the search bar, you typically see fields to enter a location, dates, and number of guests. Once entered, a list of matching properties appears with image, price per night, rating, and location. When you select a property, the listing page shows photos, host information, amenities, and house rules. After reviewing, a button to check availability or reserve is displayed. The booking screen shows dates, guests, price breakdown, cleaning fees, and total cost. A payment method and confirmation button are displayed.
+
+Messaging a host:
+On a listing page, a Contact Host button may appear. Selecting it opens a message compose screen. After typing a message and sending, the conversation appears in your inbox.
+
+Checking booking details:
+After selecting the Trips tab, upcoming and past reservations are listed. Selecting a reservation shows details including address, check-in instructions, and host contact.
+
+Cancelling a reservation:
+After selecting a reservation from the Trips tab, a cancellation option appears. Selecting it shows the cancellation policy and any refund details. A confirmation button finalizes the cancellation.
+
+Searching for a listing:
+The search bar accepts location input. After entering dates and guests, results appear. Filter options for price range, property type, amenities, and rating help refine results.
+
+Common situations that may appear:
+- Multiple listings with similar prices
+- Date availability selection
+- Guest count adjustments
+- Cleaning or service fees added at checkout
+- Payment method prompts

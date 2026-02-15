@@ -8,12 +8,13 @@
 const char* WIFI_SSID = "Arihan iPhone";
 const char* WIFI_PASS = "arihanv1";
 
-// --- Modal Sandbox tunnel (plain WebSocket, no SSL) ---
-// Start/check tunnel: uv run server.py --status
-// Then update host/port with the tunnel address it prints
-const char* WS_HOST = "r443.modal.host";
-const uint16_t WS_PORT = 39245;
+// --- Cloudflare tunnel (plain HTTP/WS on port 80) ---
+// Dev: run server locally + cloudflared tunnel --url http://localhost:8000
+// Named tunnel: cloudflared tunnel run --url http://localhost:8000 general
+const char* WS_HOST = "claire.ariv.sh";
+const uint16_t WS_PORT = 80;
 const char* WS_PATH = "/ws";
+const bool WS_USE_SSL = false;
 
 WebSocketsClient webSocket;
 String inputBuffer = "";
@@ -350,7 +351,7 @@ void setup() {
   WiFi.mode(WIFI_STA);
 
   Serial.println("[Ready] Pair iPhone to 'sotos' via Bluetooth");
-  Serial.println("[Ready] WiFi will start after 10 seconds");
+  Serial.println("[Ready] WiFi will start after 5 seconds");
 }
 
 void loop() {
@@ -366,7 +367,7 @@ void loop() {
   }
 
   // Attempt WiFi/WS after 10s (give BLE time to advertise first)
-  if (millis() > 10000 && millis() - lastWifiCheck > 5000) {
+  if (millis() > 5000 && millis() - lastWifiCheck > 5000) {
     lastWifiCheck = millis();
     if (!WiFi.isConnected()) {
       connectWiFi();

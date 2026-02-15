@@ -1,0 +1,23 @@
+This file describes what typically appears when using Google Maps on iOS.
+
+Starting navigation:
+When you open Google Maps, you usually see a full-screen map with your current location marked. A search bar appears at the top of the screen. After selecting the search bar, a text input field and recent searches appear. When you type a destination, a list of matching places appears with name, address, and distance. When you select a destination, a location page appears with details and a Directions button. After selecting Directions, route options appear with icons for driving, walking, transit, or biking with estimated travel time and distance. When you select a route and start navigation, turn-by-turn instructions and estimated arrival time appear.
+
+Searching for nearby places:
+On the map or in the search bar, you can type categories such as restaurants, gas stations, or coffee. Matching places appear on the map and in a list below with name, rating, distance, and hours.
+
+Saving a location:
+On a location page, a Save button appears. Selecting it shows lists such as Favorites, Want to Go, and Starred Places. You can add the location to a list.
+
+Sharing your location:
+After selecting your profile icon or the location sharing option, you can share your real-time location with contacts for a set duration.
+
+Checking traffic:
+On the map, traffic overlay can be enabled from the layers menu. Roads are color-coded green, yellow, and red based on congestion.
+
+Common situations that may appear:
+- Multiple destinations with similar names
+- Alternate route suggestions
+- Traffic delay notifications
+- Mode selection between driving, walking, or transit
+- Toll road and highway avoidance options
