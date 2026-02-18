@@ -1,44 +1,16 @@
 #include <Arduino.h>
-#include <WiFi.h>
+#include <math.h>
 #include <BleCombo.h>
-#include <WebSocketsClient.h>
-#include <ArduinoJson.h>
-
-// --- WiFi credentials (iPhone Personal Hotspot) ---
-// const char* WIFI_SSID = "Arihan iPhone";
-const char* WIFI_SSID = "Arihan iPhone";
-// const char* WIFI_PASS = "arihanv1";
-const char* WIFI_PASS = "arihanv1";
-
-// --- Cloudflare tunnel (plain HTTP/WS on port 80) ---
-// Dev: run server locally + cloudflared tunnel --url http://localhost:8000
-// Named tunnel: cloudflared tunnel run --url http://localhost:8000 general
-const char* WS_HOST = "claire.ariv.sh";
-const uint16_t WS_PORT = 80;
-const char* WS_PATH = "/ws";
-const bool WS_USE_SSL = false;
-
-WebSocketsClient webSocket;
 String inputBuffer = "";
-unsigned long lastWifiCheck = 0;
-unsigned long lastHeartbeat = 0;
-bool wsConnected = false;
+unsigned long lastBleCommandCheck = 0;
 const int LOGICAL_SCREEN_WIDTH = 402;
 const int LOGICAL_SCREEN_HEIGHT = 874;
-const int ABS_HOME_SWEEPS = 120;
-const int ABS_HOME_DELAY_MS = 12;
-const int ABS_STEP_SIZE = 3;
-const int ABS_STEP_DELAY_MS = 12;
-// Scale factor: compensates for iOS pointer deceleration at low HID speeds.
-// If cursor falls short of the target edge, increase this value.
-// If cursor overshoots past the edge, decrease it.
-const float ABS_MOVEMENT_SCALE = 4.0f;
-const int CLICK_SETTLE_BEFORE_MS = 45;
-const int CLICK_HOLD_MS = 65;
-const int CLICK_SETTLE_AFTER_MS = 35;
+
+static const int HOME_PULSES = 40;
+static const int CORNER_ESCAPE_PX = 50;    // move right this many px to clear the rounded corner
+static const int HOME_UP_ONLY_PULSES = 20; // then slam up to hit true top edge
 
 // Forward declaration
-void handleCommand(String cmd);
 String executeCommand(String cmd);
 
 bool parsePercentToken(String token, float& outPercent) {
@@ -53,162 +25,64 @@ bool parsePercentToken(String token, float& outPercent) {
   return true;
 }
 
-void resetCursorToTopLeft() {
-  // Strong "homing" sweep so each absolute command starts from same anchor.
-  // Larger count + slower cadence reduces iOS pointer acceleration variance.
-  for (int i = 0; i < ABS_HOME_SWEEPS; i++) {
+static void homeTopLeft() {
+  // 1) Slam into the corner area
+  for (int i = 0; i < HOME_PULSES; i++) {
     Mouse.move(-127, -127);
-    delay(ABS_HOME_DELAY_MS);
+    delay(5);
   }
-  delay(40);
+  // 2) Move right to escape the rounded corner curve
+  int escape = CORNER_ESCAPE_PX;
+  while (escape > 0) {
+    int dx = min(escape, 127);
+    Mouse.move(dx, 0);
+    escape -= dx;
+    delay(4);
+  }
+  // 3) Slam up only to hit the true top edge
+  for (int i = 0; i < HOME_UP_ONLY_PULSES; i++) {
+    Mouse.move(0, -127);
+    delay(5);
+  }
 }
 
 void moveCursorToAbsolute(int targetX, int targetY) {
   targetX = constrain(targetX, 0, LOGICAL_SCREEN_WIDTH);
   targetY = constrain(targetY, 0, LOGICAL_SCREEN_HEIGHT);
+  homeTopLeft();
+  // Anchor after homing is at (CORNER_ESCAPE_PX, 0)
+  int moveX = targetX - CORNER_ESCAPE_PX;
+  if (moveX < 0) moveX = 0;
 
-  resetCursorToTopLeft();
-
-  // Scale up HID units to compensate for iOS pointer deceleration.
-  int hidX = (int)(targetX * ABS_MOVEMENT_SCALE + 0.5f);
-  int hidY = (int)(targetY * ABS_MOVEMENT_SCALE + 0.5f);
-
-  // Move X axis first in fixed steps — single-axis keeps velocity constant
-  // so iOS acceleration multiplier is identical every run.
-  while (hidX > 0) {
-    int dx = (hidX > ABS_STEP_SIZE) ? ABS_STEP_SIZE : hidX;
+  while (moveX > 0) {
+    int dx = min(moveX, 127);
     Mouse.move(dx, 0);
-    hidX -= dx;
-    delay(ABS_STEP_DELAY_MS);
-  }
-
-  // Then move Y axis in fixed steps.
-  while (hidY > 0) {
-    int dy = (hidY > ABS_STEP_SIZE) ? ABS_STEP_SIZE : hidY;
-    Mouse.move(0, dy);
-    hidY -= dy;
-    delay(ABS_STEP_DELAY_MS);
-  }
-  delay(25);
-}
-
-void moveCursorToAbsoluteFast(int targetX, int targetY) {
-  targetX = constrain(targetX, 0, LOGICAL_SCREEN_WIDTH);
-  targetY = constrain(targetY, 0, LOGICAL_SCREEN_HEIGHT);
-
-  // Faster homing than the precision path used by moveCursorToAbsolute().
-  for (int i = 0; i < 30; i++) {
-    Mouse.move(-127, -127);
-    delay(3);
-  }
-  delay(30);
-
-  // Move both axes proportionally so the pointer travels in a straight line.
-  const int step = 10;
-  int maxDist = max(targetX, targetY);
-  int totalSteps = (maxDist + step - 1) / step;
-  int cx = 0, cy = 0;
-  for (int i = 1; i <= totalSteps; i++) {
-    int tx = (int)((long)targetX * i / totalSteps);
-    int ty = (int)((long)targetY * i / totalSteps);
-    int dx = tx - cx;
-    int dy = ty - cy;
-    cx = tx;
-    cy = ty;
-    if (dx != 0 || dy != 0) {
-      Mouse.move(dx, dy);
-    }
+    moveX -= dx;
     delay(4);
   }
+  while (targetY > 0) {
+    int dy = min(targetY, 127);
+    Mouse.move(0, dy);
+    targetY -= dy;
+    delay(4);
+  }
+}
+
+void clickAtPixel(int xPx, int yPx) {
+  moveCursorToAbsolute(xPx, yPx);
   delay(25);
+  Mouse.press(MOUSE_LEFT);
+  delay(30);
+  Mouse.release(MOUSE_LEFT);
+  delay(30);
 }
 
 void performLeftClick() {
-  // iOS can ignore zero-duration clicks; hold briefly between press/release.
-  delay(CLICK_SETTLE_BEFORE_MS);
+  delay(25);
   Mouse.press(MOUSE_LEFT);
-  // Some hosts are more reliable when button state is accompanied by motion.
-  Mouse.move(1, 0);
-  delay(8);
-  Mouse.move(-1, 0);
-  delay(CLICK_HOLD_MS);
+  delay(30);
   Mouse.release(MOUSE_LEFT);
-  delay(CLICK_SETTLE_AFTER_MS);
-}
-
-// --- Send response back via WebSocket ---
-void sendWsResponse(const char* command, const char* response) {
-  if (!wsConnected) return;
-  JsonDocument doc;
-  doc["type"] = "response";
-  doc["command"] = command;
-  doc["response"] = response;
-  String json;
-  serializeJson(doc, json);
-  webSocket.sendTXT(json);
-}
-
-// --- WebSocket event handler ---
-void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
-  switch (type) {
-    case WStype_DISCONNECTED:
-      Serial.println("[WS] Disconnected");
-      wsConnected = false;
-      break;
-
-    case WStype_CONNECTED: {
-      Serial.print("[WS] Connected to ");
-      Serial.println((char*)payload);
-      wsConnected = true;
-
-      // Small delay before registering to ensure server is ready
-      delay(200);
-
-      // Identify ourselves to the server
-      JsonDocument reg;
-      reg["type"] = "register";
-      reg["name"] = "sotos-mini";
-      String regJson;
-      serializeJson(reg, regJson);
-      webSocket.sendTXT(regJson);
-      Serial.println("[WS] Registered as 'sotos-mini'");
-      break;
-    }
-
-    case WStype_TEXT: {
-      String msg = String((char*)payload);
-      JsonDocument doc;
-      DeserializationError err = deserializeJson(doc, msg);
-      if (err) {
-        Serial.print("[WS] JSON parse error: ");
-        Serial.println(err.c_str());
-        break;
-      }
-
-      const char* msgType = doc["type"];
-      if (strcmp(msgType, "command") == 0) {
-        const char* cmd = doc["command"];
-        Serial.print("[WS] Command: ");
-        Serial.println(cmd);
-        String result = executeCommand(String(cmd));
-        sendWsResponse(cmd, result.c_str());
-      }
-      else if (strcmp(msgType, "heartbeat_ack") == 0) {
-        // Server acknowledged heartbeat
-      }
-      break;
-    }
-
-    case WStype_PING:
-      Serial.println("[WS] Ping");
-      break;
-
-    case WStype_PONG:
-      break;
-
-    default:
-      break;
-  }
+  delay(30);
 }
 
 // --- Execute a command and return response string ---
@@ -232,10 +106,7 @@ String executeCommand(String cmd) {
   if (cmdUpper == "STATUS") {
     String s = "BLE: ";
     s += Keyboard.isConnected() ? "YES" : "NO";
-    s += ", WiFi: ";
-    s += WiFi.isConnected() ? "YES" : "NO";
-    s += ", WS: ";
-    s += wsConnected ? "YES" : "NO";
+    s += ", Command BLE: READY";
     return s;
   }
 
@@ -329,20 +200,6 @@ String executeCommand(String cmd) {
     return "OK: click";
   }
   // --- Absolute move/tap by percentage (e.g. MOVE_ABS 50% 50%) ---
-  else if (cmdUpper.startsWith("MOVE_TO ")) {
-    int spaceIdx = cmdUpper.indexOf(' ', 8);
-    if (spaceIdx > 0) {
-      int targetX = cmdUpper.substring(8, spaceIdx).toInt();
-      int targetY = cmdUpper.substring(spaceIdx + 1).toInt();
-      moveCursorToAbsoluteFast(targetX, targetY);
-      String resp = "OK: move_to ";
-      resp += targetX;
-      resp += ",";
-      resp += targetY;
-      return resp;
-    }
-    return "ERR: bad MOVE_TO args (need MOVE_TO x y in pixels)";
-  }
   else if (cmdUpper.startsWith("MOVE_ABS ")) {
     int spaceIdx = cmdUpper.indexOf(' ', 9);
     if (spaceIdx > 0) {
@@ -358,14 +215,19 @@ String executeCommand(String cmd) {
       int targetY = (int)((yPercent * LOGICAL_SCREEN_HEIGHT / 100.0f) + 0.5f);
       moveCursorToAbsolute(targetX, targetY);
 
-      String resp = "OK: move_abs ";
+      String resp = "Moved to ";
       resp += xToken;
-      resp += ",";
+      resp += ", ";
       resp += yToken;
-      resp += " => ";
+      resp += " (";
       resp += targetX;
-      resp += ",";
+      resp += ", ";
       resp += targetY;
+      resp += ") on a ";
+      resp += LOGICAL_SCREEN_WIDTH;
+      resp += "x";
+      resp += LOGICAL_SCREEN_HEIGHT;
+      resp += " logical screen.";
       return resp;
     }
     return "ERR: bad MOVE_ABS args (need MOVE_ABS x% y%)";
@@ -383,8 +245,7 @@ String executeCommand(String cmd) {
 
       int targetX = (int)((xPercent * LOGICAL_SCREEN_WIDTH / 100.0f) + 0.5f);
       int targetY = (int)((yPercent * LOGICAL_SCREEN_HEIGHT / 100.0f) + 0.5f);
-      moveCursorToAbsolute(targetX, targetY);
-      performLeftClick();
+      clickAtPixel(targetX, targetY);
 
       String resp = "OK: tap_abs ";
       resp += xToken;
@@ -404,12 +265,7 @@ String executeCommand(String cmd) {
     if (spaceIdx > 0) {
       int targetX = cmdUpper.substring(4, spaceIdx).toInt();
       int targetY = cmdUpper.substring(spaceIdx + 1).toInt();
-
-      // TAP is latency-sensitive; use fast absolute movement.
-      moveCursorToAbsoluteFast(targetX, targetY);
-
-      // Click
-      performLeftClick();
+      clickAtPixel(targetX, targetY);
 
       String resp = "OK: tap ";
       resp += targetX;
@@ -418,37 +274,6 @@ String executeCommand(String cmd) {
       return resp;
     }
     return "ERR: bad TAP args (need TAP x y)";
-  }
-  else if (cmdUpper.startsWith("CLICK_AT ")) {
-    // CLICK_AT x y — raw HID units (server does pixel-to-HID conversion)
-    int spaceIdx = cmdUpper.indexOf(' ', 9);
-    if (spaceIdx > 0) {
-      int tx = cmdUpper.substring(9, spaceIdx).toInt();
-      int ty = cmdUpper.substring(spaceIdx + 1).toInt();
-      // Slam to top-left corner
-      for (int i = 0; i < 30; i++) { Mouse.move(-127, -127); delay(3); }
-      delay(30);
-      // Move proportionally so both axes finish together
-      const int step = 10;
-      int maxDist = max(tx, ty);
-      int totalSteps = (maxDist + step - 1) / step;
-      int cx = 0, cy = 0;
-      for (int i = 1; i <= totalSteps; i++) {
-        int targetX = (int)((long)tx * i / totalSteps);
-        int targetY = (int)((long)ty * i / totalSteps);
-        int dx = targetX - cx;
-        int dy = targetY - cy;
-        cx = targetX;
-        cy = targetY;
-        if (dx != 0 || dy != 0) {
-          Mouse.move(dx, dy);
-        }
-        delay(4);
-      }
-      performLeftClick();
-      return "OK: click_at hid=" + String(tx) + "," + String(ty);
-    }
-    return "ERR: bad CLICK_AT args (use: CLICK_AT x y)";
   }
   else if (cmdUpper == "CLICK_RIGHT") {
     Mouse.click(MOUSE_RIGHT);
@@ -533,98 +358,34 @@ String executeCommand(String cmd) {
   }
 }
 
-// --- WiFi connection ---
-void connectWiFi() {
-  if (WiFi.isConnected()) return;
-
-  Serial.print("[WiFi] Connecting to ");
-  Serial.println(WIFI_SSID);
-  WiFi.disconnect(true);
-  delay(100);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-  int tries = 0;
-  while (WiFi.status() != WL_CONNECTED && tries < 20) {
-    delay(500);
-    Serial.print(".");
-    tries++;
-  }
-  Serial.println();
-
-  if (WiFi.isConnected()) {
-    Serial.print("[WiFi] Connected! IP: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.print("[WiFi] Failed (status=");
-    Serial.print(WiFi.status());
-    Serial.println("). Retry later...");
-    WiFi.disconnect(true);
-  }
-}
-
-// --- WebSocket connection ---
-void connectWebSocket() {
-  if (strlen(WS_HOST) == 0) {
-    Serial.println("[WS] No host configured. Set WS_HOST and re-flash.");
-    return;
-  }
-
-  Serial.print("[WS] Connecting to ");
-  Serial.print(WS_HOST);
-  Serial.print(":");
-  Serial.print(WS_PORT);
-  Serial.print(WS_PATH);
-  Serial.println();
-
-  if (WS_USE_SSL) {
-    webSocket.beginSSL(WS_HOST, WS_PORT, WS_PATH);
-  } else {
-    webSocket.begin(WS_HOST, WS_PORT, WS_PATH);
-  }
-  webSocket.onEvent(webSocketEvent);
-  webSocket.setReconnectInterval(5000);
-}
-
-bool wsStarted = false;
-
 void setup() {
   Serial.begin(115200);
   Serial.println("\n=== Sotos ESP32 Controller ===");
 
   // Start BLE HID first (priority)
   Serial.println("[BLE] Starting...");
-  Keyboard.deviceName = "sotos-mini";
+  Keyboard.deviceName = "pilot-1";
   Keyboard.begin();
-  Serial.println("[BLE] Advertising as 'sotos-mini'");
-
-  // Init WiFi mode but don't connect yet (let BLE advertise first)
-  WiFi.mode(WIFI_STA);
-
-  Serial.println("[Ready] Pair iPhone to 'sotos' via Bluetooth");
-  Serial.println("[Ready] WiFi will start after 5 seconds");
+  Serial.println("[BLE] Advertising as 'pilot-1' (HID + command service)");
+  Serial.println("[Ready] Pair iPhone to 'pilot-1' via Bluetooth");
+  Serial.println("[Ready] Swift app can send commands to BLE characteristic");
 }
 
 void loop() {
-  // Handle WebSocket (non-blocking)
-  if (wsStarted) {
-    webSocket.loop();
-  }
-
-  // Send heartbeat every 15s
-  if (wsConnected && millis() - lastHeartbeat > 15000) {
-    lastHeartbeat = millis();
-    webSocket.sendTXT("{\"type\":\"heartbeat\"}");
-  }
-
-  // Attempt WiFi/WS after 10s (give BLE time to advertise first)
-  if (millis() > 5000 && millis() - lastWifiCheck > 5000) {
-    lastWifiCheck = millis();
-    if (!WiFi.isConnected()) {
-      connectWiFi();
-    }
-    if (WiFi.isConnected() && !wsStarted && strlen(WS_HOST) > 0) {
-      connectWebSocket();
-      wsStarted = true;
+  if (millis() - lastBleCommandCheck > 20) {
+    lastBleCommandCheck = millis();
+    std::string rawCommand;
+    if (Keyboard.popCommand(rawCommand)) {
+      String command = String(rawCommand.c_str());
+      command.trim();
+      if (command.length() > 0) {
+        Serial.print("[BLE CMD] ");
+        Serial.println(command);
+        String result = executeCommand(command);
+        Serial.print("[BLE RES] ");
+        Serial.println(result);
+        Keyboard.sendCommandResponse(std::string(result.c_str()));
+      }
     }
   }
 
@@ -648,8 +409,8 @@ void loop() {
     lastBleCheck = millis();
     if (!Keyboard.isConnected()) {
       Serial.println("[BLE] Waiting for connection...");
-    } else if (!WiFi.isConnected()) {
-      Serial.println("[BLE] Connected. [WiFi] Waiting for hotspot...");
+    } else {
+      Serial.println("[BLE] HID connected.");
     }
   }
 }

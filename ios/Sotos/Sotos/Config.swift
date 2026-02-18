@@ -1,6 +1,6 @@
 enum Config {
     /// OpenRouter API key — https://openrouter.ai/keys
-    static let openRouterAPIKey = "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"
+    static let openRouterAPIKey = "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"
 
     /// Moondream API key — https://moondream.ai
     static let moondreamAPIKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlfaWQiOiJmYjI3YTUwYi03OTY3LTRjZjMtYTNkNC0xMjZkM2Y0YjMyMTMiLCJvcmdfaWQiOiJQMU9Ubnp4SUNpU0YwRGNZYURTWVl5S2dHTXQ5WXBjYyIsImlhdCI6MTc3MTE1MzMyMywidmVyIjoxfQ.CoEWsqUC8xZoHCSHiaPo48dSlupvB6G9i5EAzTk3LFI"

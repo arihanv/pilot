@@ -25,6 +25,9 @@
 #define MEDIA_KEYS_ID 0x02
 #define MOUSE_ID 0x03
 #define DIGITIZER_ID 0x04
+#define COMMAND_SERVICE_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+#define COMMAND_RX_CHARACTERISTIC   "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define COMMAND_TX_CHARACTERISTIC   "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 static const uint8_t _hidReportDescriptor[] = {
   USAGE_PAGE(1),      0x01,          // USAGE_PAGE (Generic Desktop Ctrls)
@@ -166,12 +169,32 @@ static const uint8_t _hidReportDescriptor[] = {
   0xC0                       // END_COLLECTION
 };
 
+class CommandRxCallbacks : public BLECharacteristicCallbacks {
+public:
+  explicit CommandRxCallbacks(BleComboKeyboard* keyboard) : keyboard_(keyboard) {}
+
+  void onWrite(BLECharacteristic* characteristic) override {
+    std::string value = characteristic->getValue();
+    if (value.empty()) {
+      return;
+    }
+
+    keyboard_->enqueueCommand(value);
+  }
+
+private:
+  BleComboKeyboard* keyboard_;
+};
+
 BleComboKeyboard::BleComboKeyboard(std::string deviceName, std::string deviceManufacturer, uint8_t batteryLevel) : hid(0)
 {
   this->deviceName = deviceName;
   this->deviceManufacturer = deviceManufacturer;
   this->batteryLevel = batteryLevel;
   this->connectionStatus = new BleConnectionStatus();
+  this->commandRx = nullptr;
+  this->commandTx = nullptr;
+  this->commandPending = false;
 }
 
 void BleComboKeyboard::begin(void)
@@ -226,9 +249,23 @@ void BleComboKeyboard::taskServer(void* pvParameter) {
   bleKeyboardInstance->hid->reportMap((uint8_t*)_hidReportDescriptor, sizeof(_hidReportDescriptor));
   bleKeyboardInstance->hid->startServices();
 
+  BLEService* commandService = pServer->createService(COMMAND_SERVICE_UUID);
+  bleKeyboardInstance->commandRx = commandService->createCharacteristic(
+    COMMAND_RX_CHARACTERISTIC,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
+  );
+  bleKeyboardInstance->commandTx = commandService->createCharacteristic(
+    COMMAND_TX_CHARACTERISTIC,
+    BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ
+  );
+  bleKeyboardInstance->commandTx->addDescriptor(new BLE2902());
+  bleKeyboardInstance->commandRx->setCallbacks(new CommandRxCallbacks(bleKeyboardInstance));
+  commandService->start();
+
   BLEAdvertising *pAdvertising = pServer->getAdvertising();
   pAdvertising->setAppearance(HID_KEYBOARD);
   pAdvertising->addServiceUUID(bleKeyboardInstance->hid->hidService()->getUUID());
+  pAdvertising->addServiceUUID(commandService->getUUID());
   pAdvertising->start();
   bleKeyboardInstance->hid->setBatteryLevel(bleKeyboardInstance->batteryLevel);
 
@@ -528,4 +565,29 @@ size_t BleComboKeyboard::write(const uint8_t *buffer, size_t size) {
 		buffer++;
 	}
 	return n;
+}
+
+void BleComboKeyboard::enqueueCommand(const std::string& command) {
+  this->pendingCommand = command;
+  this->commandPending = true;
+}
+
+bool BleComboKeyboard::popCommand(std::string& outCommand) {
+  if (!this->commandPending) {
+    return false;
+  }
+
+  outCommand = this->pendingCommand;
+  this->pendingCommand.clear();
+  this->commandPending = false;
+  return true;
+}
+
+void BleComboKeyboard::sendCommandResponse(const std::string& response) {
+  if (this->commandTx == nullptr) {
+    return;
+  }
+
+  this->commandTx->setValue(response);
+  this->commandTx->notify();
 }

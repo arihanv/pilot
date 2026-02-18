@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import UIKit
 import ReplayKit
+import CoreBluetooth
 
 /// Singleton that holds a hidden RPSystemBroadcastPickerView and can
 /// programmatically trigger its internal button.
@@ -36,13 +37,38 @@ class LiveModeManager {
     var currentTranscription = ""
     var lastResponse = ""
     var errorMessage: String?
+    private var bleStateTick = 0
 
     /// Status text shown during CUA execution (e.g. "Analyzing screen: app icons").
     var cuaStatus: String = ""
 
     var speechText: String { speechManager.transcribedText }
     var isBroadcastActive: Bool { screenCapture.isBroadcastActive }
-    var connectedDevice: String? { deviceDetector.selectedDevice }
+    var selectedDevice: String? {
+        _ = bleStateTick
+        return deviceDetector.selectedDevice
+    }
+    var connectedDevice: String? {
+        _ = bleStateTick
+        return bleBridge.connectedDeviceName
+    }
+    var bleStatusText: String {
+        _ = bleStateTick
+        return bleBridge.statusText
+    }
+    var isBLEConnected: Bool {
+        _ = bleStateTick
+        return bleBridge.connectionState == .connected
+    }
+    var isBLEBusy: Bool {
+        _ = bleStateTick
+        let state = bleBridge.connectionState
+        return state == .scanning || state == .connecting
+    }
+    var isBluetoothPoweredOn: Bool {
+        _ = bleStateTick
+        return bleBridge.bluetoothPoweredOn
+    }
 
     private let speechManager = SpeechManager()
     private let openRouter: OpenRouterService
@@ -78,41 +104,156 @@ class LiveModeManager {
 
     init(apiKey: String) {
         openRouter = OpenRouterService(apiKey: apiKey)
+        bleBridge.onStateChanged = { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.bleStateTick += 1
+                self.syncBLEDeviceState()
+            }
+        }
         // Clear any stale broadcast flag from a previous session
         screenCapture.clearBroadcastFlag()
     }
 
-    // MARK: - Phone Control (via WiFi relay)
+    // MARK: - Phone Control (via direct BLE)
 
-    private let phoneBaseURL = "https://claire.ariv.sh"
+    private let bleBridge = BLECommandBridge()
 
-    /// Send commands to ESP32 via the WiFi relay server. Awaits completion.
+    private func syncBLEDeviceState() {
+        deviceDetector.updateFromBLE(
+            names: bleBridge.discoveredDeviceNames,
+            connected: bleBridge.connectedDeviceName
+        )
+    }
+
+    /// Send commands directly to ESP32 via BLE GATT. Awaits completion.
     private func sendPhoneCommands(_ commands: [String], delay: Double = 0) async {
         let sendStart = Date()
         print("[Phone] Commands: \(commands)")
+        bleBridge.setTargetDeviceName(deviceDetector.selectedDevice)
+
         do {
-            let url = URL(string: "\(phoneBaseURL)/commands")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.timeoutInterval = 30
-            var body: [String: Any] = ["commands": commands, "delay": delay]
-            if let device = deviceDetector.selectedDevice {
-                body["device"] = device
+            try await bleBridge.connectIfNeeded(timeout: 10)
+            syncBLEDeviceState()
+
+            for (index, command) in commands.enumerated() {
+                let response = try await bleBridge.sendCommand(command, responseTimeout: 5)
+                print("[Phone] BLE \(command) -> \(response)")
+
+                let isLast = index == commands.count - 1
+                if !isLast && delay > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
             }
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-            let (data, response) = try await URLSession.shared.data(for: request)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            let bodyStr = String(data: data, encoding: .utf8) ?? ""
-            print("[Phone] HTTP \(status) in \(elapsed(sendStart)): \(bodyStr.prefix(100))")
         } catch {
             print("[Phone] Error after \(elapsed(sendStart)): \(error)")
+            errorMessage = "BLE command failed: \(error.localizedDescription)"
+        }
+    }
+
+    func refreshBLEDevices() async {
+        await bleBridge.refreshDevices(scanSeconds: 2.0)
+        syncBLEDeviceState()
+    }
+
+    func connectSelectedBLEDevice() {
+        Task {
+            do {
+                try await bleBridge.connect(toDeviceNamed: deviceDetector.selectedDevice, timeout: 10)
+                syncBLEDeviceState()
+                errorMessage = nil
+            } catch {
+                syncBLEDeviceState()
+                errorMessage = "BLE connect failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    func disconnectBLEDevice() {
+        bleBridge.disconnect()
+        syncBLEDeviceState()
+    }
+
+    func sendBLEStatusTest() {
+        Task {
+            do {
+                bleBridge.setTargetDeviceName(deviceDetector.selectedDevice)
+                try await bleBridge.connectIfNeeded(timeout: 10)
+                syncBLEDeviceState()
+                let response = try await bleBridge.sendCommand("STATUS", responseTimeout: 5)
+                lastResponse = "ESP32 STATUS: \(response)"
+                errorMessage = nil
+            } catch {
+                errorMessage = "BLE test failed: \(error.localizedDescription)"
+            }
         }
     }
 
     /// Fire-and-forget variant for UI buttons.
     func sendPhoneCommandsFireAndForget(_ commands: [String], delay: Double = 0) {
         Task { await sendPhoneCommands(commands, delay: delay) }
+    }
+
+    /// Run typed command script. Supports newline or ';' separated commands.
+    /// Also supports WAIT/DELAY commands, e.g. "WAIT 0.5".
+    func runCommandScriptFireAndForget(_ script: String) {
+        Task {
+            await runCommandScript(script)
+        }
+    }
+
+    private func runCommandScript(_ script: String) async {
+        enum Step {
+            case wait(Double)
+            case command(String)
+        }
+
+        let normalized = script.replacingOccurrences(of: ";", with: "\n")
+        let lines = normalized
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("#") }
+
+        guard !lines.isEmpty else { return }
+
+        var steps: [Step] = []
+        for line in lines {
+            let upper = line.uppercased()
+            if upper.hasPrefix("WAIT ") || upper.hasPrefix("DELAY ") {
+                let value = line
+                    .split(separator: " ", omittingEmptySubsequences: true)
+                    .dropFirst()
+                    .joined(separator: " ")
+                    .replacingOccurrences(of: "s", with: "")
+                    .replacingOccurrences(of: "S", with: "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if let seconds = Double(value), seconds >= 0 {
+                    steps.append(.wait(seconds))
+                    continue
+                }
+            }
+            steps.append(.command(line))
+        }
+
+        bleBridge.setTargetDeviceName(deviceDetector.selectedDevice)
+        do {
+            try await bleBridge.connectIfNeeded(timeout: 10)
+            syncBLEDeviceState()
+
+            for step in steps {
+                switch step {
+                case .wait(let seconds):
+                    try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                case .command(let command):
+                    let response = try await bleBridge.sendCommand(command, responseTimeout: 5)
+                    print("[Phone] BLE \(command) -> \(response)")
+                    lastResponse = "\(command) -> \(response)"
+                }
+            }
+            errorMessage = nil
+        } catch {
+            errorMessage = "BLE command failed: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Start / Stop
@@ -572,5 +713,289 @@ class LiveModeManager {
         print("[CUA] ❌ Localized: \(error.localizedDescription)")
         lastResponse = "Error: \(error.localizedDescription)"
         isProcessing = false
+    }
+}
+
+private enum BLECommandError: LocalizedError {
+    case bluetoothUnavailable
+    case peripheralNotFound
+    case serviceNotReady
+    case responseTimeout
+
+    var errorDescription: String? {
+        switch self {
+        case .bluetoothUnavailable: return "Bluetooth is not powered on."
+        case .peripheralNotFound: return "Could not find the ESP32 BLE command service."
+        case .serviceNotReady: return "ESP32 BLE command characteristic is not ready."
+        case .responseTimeout: return "ESP32 command response timed out."
+        }
+    }
+}
+
+private final class BLECommandBridge: NSObject {
+    enum ConnectionState {
+        case idle
+        case scanning
+        case connecting
+        case connected
+    }
+
+    private let serviceUUID = CBUUID(string: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
+    private let rxUUID = CBUUID(string: "6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
+    private let txUUID = CBUUID(string: "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
+
+    private var central: CBCentralManager!
+    private var discoveredPeripherals: [UUID: CBPeripheral] = [:]
+    private(set) var discoveredDeviceNames: [String] = []
+    private(set) var connectedDeviceName: String?
+    private(set) var connectionState: ConnectionState = .idle
+    private(set) var bluetoothPoweredOn: Bool = false
+    var onStateChanged: (() -> Void)?
+
+    private var targetDeviceName: String?
+    private var peripheral: CBPeripheral?
+    private var rxCharacteristic: CBCharacteristic?
+    private var txCharacteristic: CBCharacteristic?
+    private var lastResponseText: String = ""
+    private var lastResponseAt: Date = .distantPast
+
+    override init() {
+        super.init()
+        central = CBCentralManager(delegate: self, queue: nil)
+    }
+
+    private func notifyStateChanged() {
+        onStateChanged?()
+    }
+
+    var isReady: Bool {
+        peripheral?.state == .connected && rxCharacteristic != nil
+    }
+
+    var statusText: String {
+        if !bluetoothPoweredOn { return "Bluetooth off" }
+        switch connectionState {
+        case .idle:
+            if let connectedDeviceName {
+                return "Connected to \(connectedDeviceName)"
+            }
+            return "Not connected"
+        case .scanning:
+            return "Scanning for devices..."
+        case .connecting:
+            if let target = targetDeviceName, !target.isEmpty {
+                return "Connecting to \(target)..."
+            }
+            return "Connecting..."
+        case .connected:
+            if let connectedDeviceName {
+                return "Connected to \(connectedDeviceName)"
+            }
+            return "Connected"
+        }
+    }
+
+    func setTargetDeviceName(_ name: String?) {
+        targetDeviceName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func refreshDevices(scanSeconds: Double = 2.0) async {
+        guard central.state == .poweredOn else { return }
+        connectionState = .scanning
+        notifyStateChanged()
+        central.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        try? await Task.sleep(nanoseconds: UInt64(scanSeconds * 1_000_000_000))
+        central.stopScan()
+        if peripheral?.state == .connected {
+            connectionState = .connected
+        } else {
+            connectionState = .idle
+        }
+        rebuildDeviceNames()
+        notifyStateChanged()
+    }
+
+    func connectIfNeeded(timeout: Double = 10.0) async throws {
+        guard central.state == .poweredOn else {
+            throw BLECommandError.bluetoothUnavailable
+        }
+        if isReady { return }
+
+        let start = Date()
+        connectionState = .scanning
+        notifyStateChanged()
+        central.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        while Date().timeIntervalSince(start) < timeout {
+            if isReady {
+                central.stopScan()
+                connectionState = .connected
+                notifyStateChanged()
+                return
+            }
+
+            if peripheral == nil || peripheral?.state == .disconnected {
+                connectBestPeripheralIfPossible()
+            }
+
+            try? await Task.sleep(nanoseconds: 150_000_000)
+        }
+
+        central.stopScan()
+        connectionState = .idle
+        notifyStateChanged()
+        throw BLECommandError.peripheralNotFound
+    }
+
+    func connect(toDeviceNamed name: String?, timeout: Double = 10.0) async throws {
+        targetDeviceName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let p = peripheral, p.state == .connected {
+            if targetDeviceName == nil || p.name?.caseInsensitiveCompare(targetDeviceName ?? "") == .orderedSame {
+                connectionState = .connected
+                connectedDeviceName = p.name
+                notifyStateChanged()
+                return
+            }
+            central.cancelPeripheralConnection(p)
+        }
+        try await connectIfNeeded(timeout: timeout)
+    }
+
+    func disconnect() {
+        if let p = peripheral, p.state == .connected || p.state == .connecting {
+            central.cancelPeripheralConnection(p)
+        }
+        peripheral = nil
+        rxCharacteristic = nil
+        txCharacteristic = nil
+        connectedDeviceName = nil
+        connectionState = .idle
+        notifyStateChanged()
+    }
+
+    func sendCommand(_ command: String, responseTimeout: Double = 5.0) async throws -> String {
+        guard isReady, let peripheral = peripheral, let rx = rxCharacteristic else {
+            throw BLECommandError.serviceNotReady
+        }
+
+        if let tx = txCharacteristic, !tx.isNotifying {
+            peripheral.setNotifyValue(true, for: tx)
+        }
+
+        let start = Date()
+        let payload = Data(command.utf8)
+        peripheral.writeValue(payload, for: rx, type: .withResponse)
+
+        while Date().timeIntervalSince(start) < responseTimeout {
+            if lastResponseAt > start {
+                return lastResponseText
+            }
+            try? await Task.sleep(nanoseconds: 60_000_000)
+        }
+
+        throw BLECommandError.responseTimeout
+    }
+
+    private func connectBestPeripheralIfPossible() {
+        if let p = peripheral, p.state == .connecting || p.state == .connected {
+            return
+        }
+
+        let target = targetDeviceName?.lowercased()
+        let byName = discoveredPeripherals.values.first { periph in
+            guard let name = periph.name?.lowercased(), let target else { return false }
+            return name == target
+        }
+
+        let chosen = byName ?? discoveredPeripherals.values.first
+        guard let chosen else { return }
+        peripheral = chosen
+        chosen.delegate = self
+        connectionState = .connecting
+        notifyStateChanged()
+        central.connect(chosen, options: nil)
+    }
+
+    private func rebuildDeviceNames() {
+        let names = discoveredPeripherals.values.compactMap { $0.name }
+        discoveredDeviceNames = Array(Set(names)).sorted()
+        notifyStateChanged()
+    }
+}
+
+extension BLECommandBridge: CBCentralManagerDelegate {
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        bluetoothPoweredOn = central.state == .poweredOn
+        if central.state == .poweredOn {
+            if connectionState == .idle {
+                connectionState = .scanning
+            }
+            central.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        } else {
+            disconnect()
+        }
+        notifyStateChanged()
+    }
+
+    func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
+        discoveredPeripherals[peripheral.identifier] = peripheral
+        rebuildDeviceNames()
+        connectBestPeripheralIfPossible()
+    }
+
+    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        peripheral.delegate = self
+        peripheral.discoverServices([serviceUUID])
+        connectedDeviceName = peripheral.name
+        connectionState = .connected
+        notifyStateChanged()
+    }
+
+    func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        if self.peripheral?.identifier == peripheral.identifier {
+            self.peripheral = nil
+            rxCharacteristic = nil
+            txCharacteristic = nil
+            connectedDeviceName = nil
+            connectionState = .idle
+            notifyStateChanged()
+        }
+    }
+
+    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        if self.peripheral?.identifier == peripheral.identifier {
+            rxCharacteristic = nil
+            txCharacteristic = nil
+            connectedDeviceName = nil
+            connectionState = .idle
+            notifyStateChanged()
+        }
+    }
+}
+
+extension BLECommandBridge: CBPeripheralDelegate {
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        guard error == nil, let services = peripheral.services else { return }
+        for service in services where service.uuid == serviceUUID {
+            peripheral.discoverCharacteristics([rxUUID, txUUID], for: service)
+        }
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        guard error == nil, let characteristics = service.characteristics else { return }
+        for c in characteristics {
+            if c.uuid == rxUUID { rxCharacteristic = c }
+            if c.uuid == txUUID {
+                txCharacteristic = c
+                peripheral.setNotifyValue(true, for: c)
+            }
+        }
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        guard error == nil, characteristic.uuid == txUUID else { return }
+        guard let data = characteristic.value, !data.isEmpty else { return }
+        let text = String(decoding: data, as: UTF8.self)
+        lastResponseText = text
+        lastResponseAt = Date()
     }
 }

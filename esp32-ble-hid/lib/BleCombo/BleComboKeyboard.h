@@ -7,6 +7,7 @@
 #include "BLEHIDDevice.h"
 #include "BLECharacteristic.h"
 #include "Print.h"
+#include <string>
 
 
 const uint8_t KEY_LEFT_CTRL = 0x80;
@@ -94,6 +95,10 @@ private:
   BLECharacteristic* inputKeyboard;
   BLECharacteristic* outputKeyboard;
   BLECharacteristic* inputMediaKeys;
+  BLECharacteristic* commandRx;
+  BLECharacteristic* commandTx;
+  volatile bool commandPending;
+  std::string pendingCommand;
   
   KeyReport _keyReport;
   MediaKeyReport _mediaKeyReport;
@@ -122,6 +127,10 @@ public:
 
   BLECharacteristic* inputMouse;
   BLECharacteristic* inputDigitizer;
+
+  void enqueueCommand(const std::string& command);
+  bool popCommand(std::string& outCommand);
+  void sendCommandResponse(const std::string& response);
 
 };
 

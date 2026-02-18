@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var manager: LiveModeManager
+    @State private var commandScript: String = ""
 
     var body: some View {
         NavigationStack {
@@ -82,6 +83,7 @@ struct ContentView: View {
                     }
 
                     deviceSection
+                    commandSection
 
                     if let error = manager.errorMessage {
                         infoCard {
@@ -110,7 +112,7 @@ struct ContentView: View {
             .animation(.default, value: manager.isProcessing)
             .animation(.default, value: manager.isSpeaking)
             .animation(.default, value: manager.cuaStatus)
-            .task { await manager.deviceDetector.refresh() }
+            .task { await manager.refreshBLEDevices() }
             .safeAreaInset(edge: .bottom) {
                 actionButtons
                     .frame(maxWidth: 430)
@@ -143,12 +145,26 @@ struct ContentView: View {
 
     @ViewBuilder
     private var deviceSection: some View {
-        if manager.deviceDetector.availableDevices.count > 1 {
-            infoCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Device")
-                        .font(.caption.weight(.semibold))
+        infoCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(bleStatusColor)
+                        .frame(width: 9, height: 9)
+                    Text(manager.bleStatusText)
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(.secondary)
+                }
+
+                if !manager.isBluetoothPoweredOn {
+                    Text("Turn on Bluetooth in iOS Settings to discover devices.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if manager.deviceDetector.availableDevices.isEmpty {
+                    Text("No compatible ESP32 devices found yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
                     Picker("Device", selection: Binding(
                         get: { manager.deviceDetector.selectedDevice ?? "" },
                         set: { manager.deviceDetector.selectedDevice = $0 }
@@ -157,20 +173,39 @@ struct ContentView: View {
                             Text(name).tag(name)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
+
+                    if let connected = manager.connectedDevice {
+                        Text("Connected: \(connected)")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
                 }
-            }
-        } else if let device = manager.connectedDevice {
-            infoCard {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(.green)
-                        .frame(width: 8, height: 8)
-                    Text(device)
-                        .font(.footnote.monospaced())
-                        .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Button {
+                        Task { await manager.refreshBLEDevices() }
+                    } label: {
+                        Label("Scan", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        manager.connectSelectedBLEDevice()
+                    } label: {
+                        Label("Connect", systemImage: "link")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(manager.deviceDetector.selectedDevice == nil || manager.isBLEBusy)
+
+                    Button {
+                        manager.disconnectBLEDevice()
+                    } label: {
+                        Label("Disconnect", systemImage: "xmark.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!manager.isBLEConnected)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -196,6 +231,60 @@ struct ContentView: View {
                     Label("Stop", systemImage: "stop.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.red)
+                }
+            }
+        }
+    }
+
+    private var commandSection: some View {
+        infoCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Run BLE Commands", systemImage: "terminal")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(.secondarySystemBackground))
+                        .frame(minHeight: 112)
+
+                    TextEditor(text: $commandScript)
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 112)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .font(.footnote.monospaced())
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+
+                    if commandScript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("Examples:\nSPOTLIGHT\nTYPE Messages\nENTER\nWAIT 0.5\nTAP_ABS 50% 50%\nVOL_UP")
+                            .font(.footnote.monospaced())
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 12)
+                            .allowsHitTesting(false)
+                    }
+                }
+
+                Text("Use one command per line (or ';'). Supports WAIT/DELAY in seconds.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Button {
+                        manager.runCommandScriptFireAndForget(commandScript)
+                    } label: {
+                        Label("Run Commands", systemImage: "paperplane.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(commandScript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || manager.isBLEBusy)
+
+                    Button("Clear") {
+                        commandScript = ""
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(commandScript.isEmpty)
                 }
             }
         }
@@ -246,6 +335,13 @@ struct ContentView: View {
         if manager.isProcessing { return "Processing…" }
         if manager.isRecording { return "Listening…" }
         return "Hold mic to talk"
+    }
+
+    private var bleStatusColor: Color {
+        if !manager.isBluetoothPoweredOn { return .gray }
+        if manager.isBLEConnected { return .green }
+        if manager.isBLEBusy { return .orange }
+        return .red
     }
 }
 
