@@ -23,4 +23,6 @@ void BleConnectionStatus::onDisconnect(BLEServer* pServer)
   desc->setNotifications(false);
   desc = (BLE2902*)this->inputDigitizer->getDescriptorByUUID(BLEUUID((uint16_t)0x2902));
   desc->setNotifications(false);
+  // Ensure the ESP32 immediately becomes discoverable again after disconnect.
+  pServer->startAdvertising();
 }
