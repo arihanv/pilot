@@ -1,416 +1,298 @@
-#include <Arduino.h>
-#include <math.h>
-#include <BleCombo.h>
-String inputBuffer = "";
-unsigned long lastBleCommandCheck = 0;
-const int LOGICAL_SCREEN_WIDTH = 402;
-const int LOGICAL_SCREEN_HEIGHT = 874;
+#include <SQUIDHID.h>
+#include <NimBLEDevice.h>
 
-static const int HOME_PULSES = 40;
-static const int CORNER_ESCAPE_PX = 50;    // move right this many px to clear the rounded corner
-static const int HOME_UP_ONLY_PULSES = 20; // then slam up to hit true top edge
+// ── Device identity ──────────────────────────────────────────────────────────
+static const char* DEVICE_NAME    = "PilotAI";
+static const char* DEVICE_MFR     = "Seeed";
 
-// Forward declaration
-String executeCommand(String cmd);
+// ── iPhone logical screen size (points) ──────────────────────────────────────
+// Digitizer.cpp scales: hidX = (x * 32767) / _screenWidth
+// So passing screen-point values works once we setDigitizerRange to this size.
+static const uint16_t SCREEN_W    = 402;
+static const uint16_t SCREEN_H    = 874;
 
-bool parsePercentToken(String token, float& outPercent) {
-  token.trim();
-  if (!token.endsWith("%")) return false;
-  String numeric = token.substring(0, token.length() - 1);
-  numeric.trim();
-  if (numeric.length() == 0) return false;
+// ── Nordic UART Service (NUS) UUIDs — iOS app connects to these ──────────────
+static const char* NUS_SVC_UUID   = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
+static const char* NUS_RX_UUID    = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; // iOS writes
+static const char* NUS_TX_UUID    = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"; // ESP32 notifies
 
-  outPercent = numeric.toFloat();
-  if (outPercent < 0.0f || outPercent > 100.0f) return false;
-  return true;
+// ── Globals ───────────────────────────────────────────────────────────────────
+SQUIDHID esp(DEVICE_NAME, DEVICE_MFR, 100);
+
+static NimBLECharacteristic* nusTxChar = nullptr;
+
+// Virtual cursor (screen points) — used to anchor relative swipes
+static int curX = SCREEN_W / 2;
+static int curY = SCREEN_H / 2;
+
+// Command queue: written by BLE callback task, consumed in loop()
+static volatile bool  cmdPending = false;
+static char           cmdBuf[256];
+static portMUX_TYPE   cmdMux = portMUX_INITIALIZER_UNLOCKED;
+
+// ── BLE response helper ───────────────────────────────────────────────────────
+static void bleRespond(const char* text) {
+    if (!nusTxChar) return;
+    nusTxChar->setValue((uint8_t*)text, strlen(text));
+    nusTxChar->notify();
 }
 
-static void homeTopLeft() {
-  // 1) Slam into the corner area
-  for (int i = 0; i < HOME_PULSES; i++) {
-    Mouse.move(-127, -127);
-    delay(5);
-  }
-  // 2) Move right to escape the rounded corner curve
-  int escape = CORNER_ESCAPE_PX;
-  while (escape > 0) {
-    int dx = min(escape, 127);
-    Mouse.move(dx, 0);
-    escape -= dx;
-    delay(4);
-  }
-  // 3) Slam up only to hit the true top edge
-  for (int i = 0; i < HOME_UP_ONLY_PULSES; i++) {
-    Mouse.move(0, -127);
-    delay(5);
-  }
+// ── BLE security callbacks — auto-accept pairing on headless device ───────────
+class BLESecurityCallback : public NimBLESecurityCallbacks {
+    // iOS uses Numeric Comparison for SC pairing: auto-confirm on our side
+    bool onConfirmPIN(uint32_t pin) override {
+        Serial.printf("[BLE] Confirm PIN %06lu — auto YES\n", (unsigned long)pin);
+        return true;
+    }
+    uint32_t onPassKeyRequest() override { return 0; }
+    void onPassKeyNotify(uint32_t pk) override {
+        Serial.printf("[BLE] PassKey notify: %06lu\n", (unsigned long)pk);
+    }
+    bool onSecurityRequest() override { return true; }
+    void onAuthenticationComplete(ble_gap_conn_desc* desc) override {
+        if (desc->sec_state.encrypted) {
+            Serial.println("[BLE] Paired and encrypted OK");
+        } else {
+            Serial.println("[BLE] Pairing FAILED — not encrypted");
+        }
+    }
+};
+static BLESecurityCallback bleSecCb;
+
+// ── NUS RX callback ───────────────────────────────────────────────────────────
+class NUSRxCallback : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* c) override {
+        std::string v = c->getValue();
+        if (v.empty()) return;
+        portENTER_CRITICAL(&cmdMux);
+        size_t len = v.size() < sizeof(cmdBuf) - 1 ? v.size() : sizeof(cmdBuf) - 1;
+        memcpy(cmdBuf, v.data(), len);
+        cmdBuf[len] = '\0';
+        cmdPending = true;
+        portEXIT_CRITICAL(&cmdMux);
+    }
+};
+static NUSRxCallback nusRxCb;
+
+// ── Digitizer swipe helper ────────────────────────────────────────────────────
+static void doSwipe(int ox1, int oy1, int ox2, int oy2, int steps) {
+    if (steps < 2) steps = 12;
+    int sx = constrain(curX + ox1, 0, (int)SCREEN_W);
+    int sy = constrain(curY + oy1, 0, (int)SCREEN_H);
+    int ex = constrain(curX + ox2, 0, (int)SCREEN_W);
+    int ey = constrain(curY + oy2, 0, (int)SCREEN_H);
+
+    esp.beginStroke((uint16_t)sx, (uint16_t)sy, 120);
+    delay(30);
+    for (int i = 1; i <= steps; i++) {
+        int px = sx + ((ex - sx) * i) / steps;
+        int py = sy + ((ey - sy) * i) / steps;
+        esp.updateStroke((uint16_t)px, (uint16_t)py, 100);
+        delay(15);
+    }
+    esp.endStroke((uint16_t)ex, (uint16_t)ey);
+    curX = ex;
+    curY = ey;
 }
 
-void moveCursorToAbsolute(int targetX, int targetY) {
-  targetX = constrain(targetX, 0, LOGICAL_SCREEN_WIDTH);
-  targetY = constrain(targetY, 0, LOGICAL_SCREEN_HEIGHT);
-  homeTopLeft();
-  // Anchor after homing is at (CORNER_ESCAPE_PX, 0)
-  int moveX = targetX - CORNER_ESCAPE_PX;
-  if (moveX < 0) moveX = 0;
+// ── Command dispatcher ────────────────────────────────────────────────────────
+static void executeCommand(const char* raw) {
+    // Strip leading non-printable
+    while (*raw && ((uint8_t)*raw < 32 || (uint8_t)*raw > 126)) raw++;
+    if (!*raw) { bleRespond("ERR:EMPTY"); return; }
 
-  while (moveX > 0) {
-    int dx = min(moveX, 127);
-    Mouse.move(dx, 0);
-    moveX -= dx;
-    delay(4);
-  }
-  while (targetY > 0) {
-    int dy = min(targetY, 127);
-    Mouse.move(0, dy);
-    targetY -= dy;
-    delay(4);
-  }
+    Serial.printf("[CMD] %s\n", raw);
+
+    // Upper-case copy for keyword matching
+    char up[256];
+    size_t i = 0;
+    while (raw[i] && i < sizeof(up) - 1) { up[i] = toupper((uint8_t)raw[i]); i++; }
+    up[i] = '\0';
+
+    // ── STATUS ────────────────────────────────────────────────────────────────
+    if (strcmp(up, "STATUS") == 0) {
+        bleRespond(esp.isConnected() ? "OK:CONNECTED" : "OK:DISCONNECTED");
+        return;
+    }
+
+    // ── CLICK_AT x y — absolute digitizer tap (screen points) ────────────────
+    if (strncmp(up, "CLICK_AT ", 9) == 0) {
+        int x = 0, y = 0;
+        if (sscanf(up + 9, "%d %d", &x, &y) == 2) {
+            x = constrain(x, 0, (int)SCREEN_W);
+            y = constrain(y, 0, (int)SCREEN_H);
+            esp.click((uint16_t)x, (uint16_t)y, DI_BTN1);
+            curX = x; curY = y;
+            bleRespond("OK");
+        } else {
+            bleRespond("ERR:BAD_ARGS");
+        }
+        return;
+    }
+
+    // ── TYPE <text> ───────────────────────────────────────────────────────────
+    if (strncmp(up, "TYPE ", 5) == 0) {
+        const char* text = raw + 5;
+        for (const char* p = text; *p; ++p) {
+            esp.write((uint8_t)*p);
+            delay(40);
+        }
+        delay(80);
+        bleRespond("OK");
+        return;
+    }
+
+    // ── SWIPE x1 y1 x2 y2 [steps] — relative drag from virtual cursor ────────
+    if (strncmp(up, "SWIPE ", 6) == 0) {
+        int x1=0, y1=0, x2=0, y2=0, steps=15;
+        int n = sscanf(up + 6, "%d %d %d %d %d", &x1, &y1, &x2, &y2, &steps);
+        if (n >= 4) {
+            doSwipe(x1, y1, x2, y2, steps);
+            bleRespond("OK");
+        } else {
+            bleRespond("ERR:BAD_ARGS");
+        }
+        return;
+    }
+
+    // ── SCROLL value — positive=down, negative=up ─────────────────────────────
+    if (strncmp(up, "SCROLL ", 7) == 0) {
+        int value = 0;
+        if (sscanf(up + 7, "%d", &value) == 1) {
+            // Each unit ≈ 5 screen-point drag; cap at reasonable range
+            int delta = constrain(value * 5, -200, 200);
+            doSwipe(0, 0, 0, -delta, 14);
+            bleRespond("OK");
+        } else {
+            bleRespond("ERR:BAD_ARGS");
+        }
+        return;
+    }
+
+    // ── Single-key shortcuts ──────────────────────────────────────────────────
+    if (strcmp(up, "ENTER")     == 0) { esp.write(KC_ENT);  bleRespond("OK"); return; }
+    if (strcmp(up, "BACKSPACE") == 0) { esp.write(KC_BSPC); bleRespond("OK"); return; }
+    if (strcmp(up, "TAB")       == 0) { esp.write(KC_TAB);  bleRespond("OK"); return; }
+    if (strcmp(up, "ESC")       == 0) { esp.write(KC_ESC);  bleRespond("OK"); return; }
+    if (strcmp(up, "SPACE")     == 0) { esp.write(KC_SPC);  bleRespond("OK"); return; }
+    if (strcmp(up, "UP")        == 0) { esp.write(KC_UP);   bleRespond("OK"); return; }
+    if (strcmp(up, "DOWN")      == 0) { esp.write(KC_DOWN); bleRespond("OK"); return; }
+    if (strcmp(up, "LEFT")      == 0) { esp.write(KC_LEFT); bleRespond("OK"); return; }
+    if (strcmp(up, "RIGHT")     == 0) { esp.write(KC_RGHT); bleRespond("OK"); return; }
+    if (strcmp(up, "DELETE")    == 0) { esp.write(KC_DEL);  bleRespond("OK"); return; }
+    if (strcmp(up, "PAGE_UP")   == 0) { esp.write(KC_PGUP); bleRespond("OK"); return; }
+    if (strcmp(up, "PAGE_DOWN") == 0) { esp.write(KC_PGDN); bleRespond("OK"); return; }
+
+    // ── iOS modifier combos ───────────────────────────────────────────────────
+    if (strcmp(up, "HOME") == 0) {
+        esp.press(KC_LGUI); esp.press(KC_H); delay(50); esp.releaseAll();
+        bleRespond("OK"); return;
+    }
+    if (strcmp(up, "LOCK") == 0) {
+        esp.press(KC_LGUI); esp.press(KC_L); delay(50); esp.releaseAll();
+        bleRespond("OK"); return;
+    }
+    if (strcmp(up, "SPOTLIGHT") == 0) {
+        esp.press(KC_LGUI); esp.press(KC_SPC); delay(50); esp.releaseAll();
+        bleRespond("OK"); return;
+    }
+    if (strcmp(up, "APPSWITCHER") == 0) {
+        esp.press(KC_LGUI); esp.press(KC_TAB); delay(50); esp.releaseAll();
+        bleRespond("OK"); return;
+    }
+
+    bleRespond("ERR:UNKNOWN");
 }
 
-void clickAtPixel(int xPx, int yPx) {
-  moveCursorToAbsolute(xPx, yPx);
-  delay(25);
-  Mouse.press(MOUSE_LEFT);
-  delay(30);
-  Mouse.release(MOUSE_LEFT);
-  delay(30);
-}
-
-void performLeftClick() {
-  delay(25);
-  Mouse.press(MOUSE_LEFT);
-  delay(30);
-  Mouse.release(MOUSE_LEFT);
-  delay(30);
-}
-
-// --- Execute a command and return response string ---
-String executeCommand(String cmd) {
-  cmd.trim();
-  if (cmd.length() == 0) return "ERR: empty";
-
-  // Strip non-printable characters
-  while (cmd.length() > 0 && (cmd.charAt(0) < 32 || cmd.charAt(0) > 126)) {
-    cmd = cmd.substring(1);
-  }
-  cmd.trim();
-  if (cmd.length() == 0) return "ERR: empty";
-
-  String cmdUpper = cmd;
-  cmdUpper.toUpperCase();
-
-  Serial.print("CMD: ");
-  Serial.println(cmdUpper);
-
-  if (cmdUpper == "STATUS") {
-    String s = "BLE: ";
-    s += Keyboard.isConnected() ? "YES" : "NO";
-    s += ", Command BLE: READY";
-    return s;
-  }
-
-  if (!Keyboard.isConnected()) {
-    return "ERR: BLE not connected";
-  }
-
-  // --- Keyboard ---
-  if (cmdUpper.startsWith("TYPE ")) {
-    String text = cmd.substring(5);
-    for (unsigned int i = 0; i < text.length(); i++) {
-      char ch = text.charAt(i);
-      Keyboard.press(ch);
-      delay(35);
-      Keyboard.release(ch);
-      // Give iOS lockscreen time to consume each HID report.
-      delay(140);
-    }
-    // Extra settle time so the final character is not raced by ENTER.
-    delay(180);
-    return "OK: typed";
-  }
-  else if (cmdUpper.startsWith("KEY ")) {
-    Keyboard.write(cmd.charAt(4));
-    return "OK: key";
-  }
-  else if (cmdUpper.startsWith("KEYDOWN ")) {
-    Keyboard.press(cmd.charAt(8));
-    return "OK: key down";
-  }
-  else if (cmdUpper.startsWith("KEYUP ")) {
-    Keyboard.release(cmd.charAt(6));
-    return "OK: key up";
-  }
-  else if (cmdUpper == "RELEASEALL") {
-    Keyboard.releaseAll();
-    return "OK: released all";
-  }
-  else if (cmdUpper == "ENTER") {
-    Keyboard.press(KEY_RETURN);
-    delay(35);
-    Keyboard.release(KEY_RETURN);
-    delay(120);
-    return "OK: enter";
-  }
-  else if (cmdUpper == "BACKSPACE") {
-    Keyboard.write(KEY_BACKSPACE);
-    return "OK: backspace";
-  }
-  else if (cmdUpper == "TAB") {
-    Keyboard.write(KEY_TAB);
-    return "OK: tab";
-  }
-  else if (cmdUpper == "ESC") {
-    Keyboard.write(KEY_ESC);
-    return "OK: esc";
-  }
-  else if (cmdUpper == "SPACE") {
-    Keyboard.write(' ');
-    return "OK: space";
-  }
-  else if (cmdUpper == "UP") {
-    Keyboard.write(KEY_UP_ARROW);
-    return "OK: up";
-  }
-  else if (cmdUpper == "DOWN") {
-    Keyboard.write(KEY_DOWN_ARROW);
-    return "OK: down";
-  }
-  else if (cmdUpper == "LEFT") {
-    Keyboard.write(KEY_LEFT_ARROW);
-    return "OK: left";
-  }
-  else if (cmdUpper == "RIGHT") {
-    Keyboard.write(KEY_RIGHT_ARROW);
-    return "OK: right";
-  }
-  // --- Mouse ---
-  else if (cmdUpper.startsWith("MOVE ")) {
-    int spaceIdx = cmdUpper.indexOf(' ', 5);
-    if (spaceIdx > 0) {
-      int x = cmdUpper.substring(5, spaceIdx).toInt();
-      int y = cmdUpper.substring(spaceIdx + 1).toInt();
-      Mouse.move(x, y);
-      return "OK: moved";
-    }
-    return "ERR: bad MOVE args";
-  }
-  else if (cmdUpper == "CLICK") {
-    performLeftClick();
-    return "OK: click";
-  }
-  // --- Absolute move/tap by percentage (e.g. MOVE_ABS 50% 50%) ---
-  else if (cmdUpper.startsWith("MOVE_ABS ")) {
-    int spaceIdx = cmdUpper.indexOf(' ', 9);
-    if (spaceIdx > 0) {
-      String xToken = cmdUpper.substring(9, spaceIdx);
-      String yToken = cmdUpper.substring(spaceIdx + 1);
-      float xPercent = 0.0f;
-      float yPercent = 0.0f;
-      if (!parsePercentToken(xToken, xPercent) || !parsePercentToken(yToken, yPercent)) {
-        return "ERR: bad MOVE_ABS args (need MOVE_ABS x% y%, 0-100%)";
-      }
-
-      int targetX = (int)((xPercent * LOGICAL_SCREEN_WIDTH / 100.0f) + 0.5f);
-      int targetY = (int)((yPercent * LOGICAL_SCREEN_HEIGHT / 100.0f) + 0.5f);
-      moveCursorToAbsolute(targetX, targetY);
-
-      String resp = "Moved to ";
-      resp += xToken;
-      resp += ", ";
-      resp += yToken;
-      resp += " (";
-      resp += targetX;
-      resp += ", ";
-      resp += targetY;
-      resp += ") on a ";
-      resp += LOGICAL_SCREEN_WIDTH;
-      resp += "x";
-      resp += LOGICAL_SCREEN_HEIGHT;
-      resp += " logical screen.";
-      return resp;
-    }
-    return "ERR: bad MOVE_ABS args (need MOVE_ABS x% y%)";
-  }
-  else if (cmdUpper.startsWith("TAP_ABS ")) {
-    int spaceIdx = cmdUpper.indexOf(' ', 8);
-    if (spaceIdx > 0) {
-      String xToken = cmdUpper.substring(8, spaceIdx);
-      String yToken = cmdUpper.substring(spaceIdx + 1);
-      float xPercent = 0.0f;
-      float yPercent = 0.0f;
-      if (!parsePercentToken(xToken, xPercent) || !parsePercentToken(yToken, yPercent)) {
-        return "ERR: bad TAP_ABS args (need TAP_ABS x% y%, 0-100%)";
-      }
-
-      int targetX = (int)((xPercent * LOGICAL_SCREEN_WIDTH / 100.0f) + 0.5f);
-      int targetY = (int)((yPercent * LOGICAL_SCREEN_HEIGHT / 100.0f) + 0.5f);
-      clickAtPixel(targetX, targetY);
-
-      String resp = "OK: tap_abs ";
-      resp += xToken;
-      resp += ",";
-      resp += yToken;
-      resp += " => ";
-      resp += targetX;
-      resp += ",";
-      resp += targetY;
-      return resp;
-    }
-    return "ERR: bad TAP_ABS args (need TAP_ABS x% y%)";
-  }
-  // --- Absolute tap: reset cursor to (0,0) then move to target and click ---
-  else if (cmdUpper.startsWith("TAP ")) {
-    int spaceIdx = cmdUpper.indexOf(' ', 4);
-    if (spaceIdx > 0) {
-      int targetX = cmdUpper.substring(4, spaceIdx).toInt();
-      int targetY = cmdUpper.substring(spaceIdx + 1).toInt();
-      clickAtPixel(targetX, targetY);
-
-      String resp = "OK: tap ";
-      resp += targetX;
-      resp += ",";
-      resp += targetY;
-      return resp;
-    }
-    return "ERR: bad TAP args (need TAP x y)";
-  }
-  else if (cmdUpper == "CLICK_RIGHT") {
-    Mouse.click(MOUSE_RIGHT);
-    return "OK: right click";
-  }
-  else if (cmdUpper.startsWith("SCROLL ")) {
-    int amount = cmdUpper.substring(7).toInt();
-    int dir = (amount > 0) ? 1 : -1;
-    int steps = abs(amount);
-    for (int i = 0; i < steps; i++) {
-      Mouse.move(0, 0, dir);
-      delay(10);
-    }
-    return "OK: scroll";
-  }
-  else if (cmdUpper.startsWith("SWIPE ")) {
-    int params[5];
-    int idx = 6;
-    for (int i = 0; i < 5; i++) {
-      int nextSpace = cmdUpper.indexOf(' ', idx);
-      if (nextSpace < 0) nextSpace = cmdUpper.length();
-      params[i] = cmdUpper.substring(idx, nextSpace).toInt();
-      idx = nextSpace + 1;
-    }
-    int x1 = params[0], y1 = params[1];
-    int x2 = params[2], y2 = params[3];
-    int steps = params[4];
-    if (steps <= 0) steps = 10;
-
-    Mouse.move(x1, y1);
-    delay(50);
-    Mouse.press(MOUSE_LEFT);
-    delay(50);
-    int dx = (x2 - x1) / steps;
-    int dy = (y2 - y1) / steps;
-    for (int i = 0; i < steps; i++) {
-      Mouse.move(dx, dy);
-      delay(15);
-    }
-    Mouse.release(MOUSE_LEFT);
-    return "OK: swipe";
-  }
-  // --- iOS shortcuts ---
-  else if (cmdUpper == "VOL_UP") {
-    Keyboard.write(KEY_MEDIA_VOLUME_UP);
-    return "OK: vol up";
-  }
-  else if (cmdUpper == "VOL_DOWN") {
-    Keyboard.write(KEY_MEDIA_VOLUME_DOWN);
-    return "OK: vol down";
-  }
-  else if (cmdUpper == "HOME") {
-    Keyboard.press(KEY_LEFT_GUI);
-    Keyboard.press('h');
-    delay(50);
-    Keyboard.releaseAll();
-    return "OK: home";
-  }
-  else if (cmdUpper == "LOCK") {
-    Keyboard.press(KEY_LEFT_GUI);
-    Keyboard.press('l');
-    delay(50);
-    Keyboard.releaseAll();
-    return "OK: lock";
-  }
-  else if (cmdUpper == "APPSWITCHER") {
-    Keyboard.press(KEY_LEFT_GUI);
-    Keyboard.press(KEY_TAB);
-    delay(50);
-    Keyboard.releaseAll();
-    return "OK: app switcher";
-  }
-  else if (cmdUpper == "SPOTLIGHT") {
-    Keyboard.press(KEY_LEFT_GUI);
-    Keyboard.press(' ');
-    delay(50);
-    Keyboard.releaseAll();
-    return "OK: spotlight";
-  }
-  else {
-    return "ERR: unknown: " + cmdUpper;
-  }
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
 void setup() {
-  Serial.begin(115200);
-  Serial.println("\n=== Sotos ESP32 Controller ===");
+    Serial.begin(115200);
+    delay(500);
+    Serial.println("[PILOT] XIAO ESP32S3 booting...");
 
-  // Start BLE HID first (priority)
-  Serial.println("[BLE] Starting...");
-  Keyboard.deviceName = "pilot-1";
-  Keyboard.begin();
-  Serial.println("[BLE] Advertising as 'pilot-1' (HID + command service)");
-  Serial.println("[Ready] Pair iPhone to 'pilot-1' via Bluetooth");
-  Serial.println("[Ready] Swift app can send commands to BLE characteristic");
+    // ── Step 1: Init NimBLE ourselves first ───────────────────────────────────
+    // SQUIDHID's begin() calls NimBLEDevice::init() internally, but if the
+    // stack is already initialised it's a no-op.  By calling init() here first
+    // we can register the NUS service BEFORE SQUIDHID calls
+    // hidDevice->startServices(), which seals the GATT database.  Adding a
+    // service after the GATT is sealed causes a NimBLE assertion / stack crash,
+    // which is why connecting was resetting the ESP32 BLE radio.
+    NimBLEDevice::init(DEVICE_NAME);
+
+    // ── Step 2: Create NUS service on the singleton server ───────────────────
+    {
+        NimBLEServer*  pServer = NimBLEDevice::createServer();
+        NimBLEService* nusSvc  = pServer->createService(NUS_SVC_UUID);
+
+        nusTxChar = nusSvc->createCharacteristic(
+            NUS_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
+
+        NimBLECharacteristic* nusRx = nusSvc->createCharacteristic(
+            NUS_RX_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
+        nusRx->setCallbacks(&nusRxCb);
+
+        nusSvc->start(); // queues NUS in GATT — not sealed yet
+    }
+
+    // ── Step 3: Start SQUIDHID ────────────────────────────────────────────────
+    // NimBLEDevice::init() is a no-op now; createServer() returns the same
+    // singleton that already has NUS on it.  HID service is added alongside NUS
+    // and then the GATT is sealed when advertising starts.
+    esp.setAppearance(CYCLING_COMPUTER);
+    esp.setDigitizerRange(SCREEN_W, SCREEN_H);
+    esp.begin();
+
+    // ── Step 4: Fix security ──────────────────────────────────────────────────
+    // Register callbacks so NimBLE can auto-confirm Numeric Comparison pairing
+    // (iOS SC pairing shows a 6-digit number and waits for device confirmation —
+    // without a callback NimBLE never confirms and iOS times out / disconnects).
+    NimBLEDevice::setSecurityCallbacks(&bleSecCb);
+    // Bonding + SC, no MITM required.  With NoInputNoOutput IO cap this becomes
+    // "Just Works" SC — no PIN, no number shown, single tap on iPhone/Mac.
+    NimBLEDevice::setSecurityAuth(true, false, true); // bonding + SC, no MITM
+    NimBLEDevice::setSecurityIOCap(3);                // 3 = NoInputNoOutput
+
+    // ── Step 5: Restart advertising with both service UUIDs ──────────────────
+    NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
+    pAdv->stop();
+    delay(50);
+
+    NimBLEAdvertisementData advData;
+    advData.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+    advData.setAppearance(CYCLING_COMPUTER);
+    advData.setCompleteServices(NimBLEUUID((uint16_t)0x1812)); // HID → Settings pairs this
+
+    NimBLEAdvertisementData scanRsp;
+    scanRsp.setName(DEVICE_NAME);
+    scanRsp.setCompleteServices(NimBLEUUID(NUS_SVC_UUID)); // NUS → app scan finds this
+
+    pAdv->setAdvertisementData(advData);
+    pAdv->setScanResponseData(scanRsp);
+    pAdv->start();
+
+    Serial.printf("[PILOT] Ready — advertising as '%s'\n", DEVICE_NAME);
+    Serial.println("[PILOT] Pair in Bluetooth Settings (no PIN required)");
 }
 
 void loop() {
-  if (millis() - lastBleCommandCheck > 20) {
-    lastBleCommandCheck = millis();
-    std::string rawCommand;
-    if (Keyboard.popCommand(rawCommand)) {
-      String command = String(rawCommand.c_str());
-      command.trim();
-      if (command.length() > 0) {
-        Serial.print("[BLE CMD] ");
-        Serial.println(command);
-        String result = executeCommand(command);
-        Serial.print("[BLE RES] ");
-        Serial.println(result);
-        Keyboard.sendCommandResponse(std::string(result.c_str()));
-      }
-    }
-  }
+    esp.update();
 
-  // Serial commands still work (for local debugging)
-  while (Serial.available()) {
-    char c = Serial.read();
-    if (c == '\n' || c == '\r') {
-      if (inputBuffer.length() > 0) {
-        String result = executeCommand(inputBuffer);
-        Serial.println(result);
-        inputBuffer = "";
-      }
-    } else {
-      inputBuffer += c;
+    // Print connection state changes
+    static bool lastConnected = false;
+    bool nowConnected = esp.isConnected();
+    if (nowConnected != lastConnected) {
+        lastConnected = nowConnected;
+        Serial.println(nowConnected ? "[BLE] HID connected!" : "[BLE] HID disconnected.");
     }
-  }
 
-  // Periodic status
-  static unsigned long lastBleCheck = 0;
-  if (millis() - lastBleCheck > 10000) {
-    lastBleCheck = millis();
-    if (!Keyboard.isConnected()) {
-      Serial.println("[BLE] Waiting for connection...");
-    } else {
-      Serial.println("[BLE] HID connected.");
+    if (cmdPending) {
+        char local[256];
+        portENTER_CRITICAL(&cmdMux);
+        memcpy(local, cmdBuf, sizeof(local));
+        cmdPending = false;
+        portEXIT_CRITICAL(&cmdMux);
+        executeCommand(local);
     }
-  }
+
+    delay(5);
 }

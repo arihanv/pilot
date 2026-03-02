@@ -194,6 +194,14 @@ class LiveModeManager {
         Task { await sendPhoneCommands(commands, delay: delay) }
     }
 
+    /// Public BLE command for calibration. Connects if needed, sends, returns response.
+    func sendCalibrationCommand(_ command: String, timeout: Double = 15) async throws -> String {
+        bleBridge.setTargetDeviceName(deviceDetector.selectedDevice)
+        try await bleBridge.connectIfNeeded(timeout: 10)
+        syncBLEDeviceState()
+        return try await bleBridge.sendCommand(command, responseTimeout: timeout)
+    }
+
     /// Run typed command script. Supports newline or ';' separated commands.
     /// Also supports WAIT/DELAY commands, e.g. "WAIT 0.5".
     func runCommandScriptFireAndForget(_ script: String) {
@@ -543,8 +551,9 @@ class LiveModeManager {
         let pixelY = Double(pixel.y)
         let calibratedPixelX = pixelX * (Config.screenshotWidth / liveWidth)
         let calibratedPixelY = pixelY * (Config.screenshotHeight / liveHeight)
-        let hidX = Int(calibratedPixelX * Config.hidScaleX + Config.hidOffsetX)
-        let hidY = Int(calibratedPixelY * calibratedPixelY * Config.hidQuadY + calibratedPixelY * Config.hidLinearY + Config.hidConstY)
+        let hid = Config.hidForCalibratedPixel(px: calibratedPixelX, py: calibratedPixelY)
+        let hidX = hid.x
+        let hidY = hid.y
 
         print("[CUA] Tap element \(elementId) → pixel (\(pixel.x),\(pixel.y)) → calibrated (\(Int(calibratedPixelX)),\(Int(calibratedPixelY))) → HID (\(hidX),\(hidY))")
 
@@ -743,6 +752,7 @@ private final class BLECommandBridge: NSObject {
     private let serviceUUID = CBUUID(string: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
     private let rxUUID = CBUUID(string: "6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
     private let txUUID = CBUUID(string: "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
+    private let hidServiceUUID = CBUUID(string: "1812")
 
     private var central: CBCentralManager!
     private var discoveredPeripherals: [UUID: CBPeripheral] = [:]
@@ -803,6 +813,12 @@ private final class BLECommandBridge: NSObject {
         guard central.state == .poweredOn else { return }
         connectionState = .scanning
         notifyStateChanged()
+        
+        let connectedSystemPeripherals = central.retrieveConnectedPeripherals(withServices: [serviceUUID, hidServiceUUID])
+        for p in connectedSystemPeripherals {
+            discoveredPeripherals[p.identifier] = p
+        }
+        
         central.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
         try? await Task.sleep(nanoseconds: UInt64(scanSeconds * 1_000_000_000))
         central.stopScan()
@@ -821,10 +837,30 @@ private final class BLECommandBridge: NSObject {
         }
         if isReady { return }
 
+        // Start by checking already connected system devices (like an paired HID pointer)
+        let connectedSystemPeripherals = central.retrieveConnectedPeripherals(withServices: [serviceUUID, hidServiceUUID])
+        for p in connectedSystemPeripherals {
+            discoveredPeripherals[p.identifier] = p
+        }
+        rebuildDeviceNames()
+
+        if let p = peripheral ?? connectedSystemPeripherals.first {
+            if self.peripheral == nil {
+                self.peripheral = p
+                p.delegate = self
+            }
+            if p.state != .connected && p.state != .connecting {
+                connectionState = .connecting
+                notifyStateChanged()
+                central.connect(p, options: nil)
+            }
+        }
+
         let start = Date()
         connectionState = .scanning
         notifyStateChanged()
         central.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        
         while Date().timeIntervalSince(start) < timeout {
             if isReady {
                 central.stopScan()
@@ -833,7 +869,11 @@ private final class BLECommandBridge: NSObject {
                 return
             }
 
-            if peripheral == nil || peripheral?.state == .disconnected {
+            if peripheral == nil || (peripheral?.state == .disconnected && Date().timeIntervalSince(start) > 1.0) {
+                // Periodically check again just in case
+                let sysPeripherals = central.retrieveConnectedPeripherals(withServices: [serviceUUID, hidServiceUUID])
+                for p in sysPeripherals { discoveredPeripherals[p.identifier] = p }
+                rebuildDeviceNames()
                 connectBestPeripheralIfPossible()
             }
 
@@ -929,6 +969,11 @@ extension BLECommandBridge: CBCentralManagerDelegate {
             if connectionState == .idle {
                 connectionState = .scanning
             }
+            let connectedSystemPeripherals = central.retrieveConnectedPeripherals(withServices: [serviceUUID, hidServiceUUID])
+            for p in connectedSystemPeripherals {
+                discoveredPeripherals[p.identifier] = p
+            }
+            rebuildDeviceNames()
             central.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
         } else {
             disconnect()

@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @Bindable var manager: LiveModeManager
     @State private var commandScript: String = ""
+    @State private var showCalibration = false
 
     var body: some View {
         NavigationStack {
@@ -206,7 +207,38 @@ struct ContentView: View {
                     .buttonStyle(.bordered)
                     .disabled(!manager.isBLEConnected)
                 }
+
+                Divider()
+
+                HStack(spacing: 10) {
+                    Button {
+                        showCalibration = true
+                    } label: {
+                        Label("Calibrate", systemImage: "scope")
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.orange)
+                    .disabled(!manager.isBLEConnected)
+
+                    if Config.calibration != nil {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .font(.caption)
+                        Text("Calibrated")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Not calibrated")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+                }
             }
+        }
+        .fullScreenCover(isPresented: $showCalibration) {
+            CalibrationView(manager: manager)
         }
     }
 
