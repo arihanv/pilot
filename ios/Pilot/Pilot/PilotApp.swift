@@ -1,6 +1,6 @@
 //
-//  SotosApp.swift
-//  Sotos
+//  PilotApp.swift
+//  Pilot
 //
 //  Created by Ethan Goodhart on 2/14/26.
 //
@@ -9,12 +9,12 @@ import SwiftUI
 import Foundation
 
 private enum ShortcutBridge {
-    static let appGroup = "group.arihan.sotos"
+    static let appGroup = "group.dev.ethan.Pilot"
     static let queueKey = "shortcut_prompt_queue"
 }
 
 @main
-struct SotosApp: App {
+struct PilotApp: App {
     @State private var manager = LiveModeManager(apiKey: Config.openRouterAPIKey)
     @Environment(\.scenePhase) private var scenePhase
 
@@ -49,7 +49,7 @@ struct SotosApp: App {
                     }
                 }
                 .onOpenURL { url in
-                    guard url.scheme?.lowercased() == "sotos" else { return }
+                    guard url.scheme?.lowercased() == "pilot" else { return }
                     print("[ShortcutBridge] Opened via URL: \(url.absoluteString)")
 
                     // Prefer App Group queue for reliable delivery across process boundaries.

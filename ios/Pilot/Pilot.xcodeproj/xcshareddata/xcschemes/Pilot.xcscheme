@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "0FAA172E2F41490D00B09D45"
-               BuildableName = "Sotos.app"
-               BlueprintName = "Sotos"
-               ReferencedContainer = "container:Sotos.xcodeproj">
+               BuildableName = "Pilot.app"
+               BlueprintName = "Pilot"
+               ReferencedContainer = "container:Pilot.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0FAA172E2F41490D00B09D45"
-            BuildableName = "Sotos.app"
-            BlueprintName = "Sotos"
-            ReferencedContainer = "container:Sotos.xcodeproj">
+            BuildableName = "Pilot.app"
+            BlueprintName = "Pilot"
+            ReferencedContainer = "container:Pilot.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0FAA172E2F41490D00B09D45"
-            BuildableName = "Sotos.app"
-            BlueprintName = "Sotos"
-            ReferencedContainer = "container:Sotos.xcodeproj">
+            BuildableName = "Pilot.app"
+            BlueprintName = "Pilot"
+            ReferencedContainer = "container:Pilot.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

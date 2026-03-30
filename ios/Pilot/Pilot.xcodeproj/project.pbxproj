@@ -60,7 +60,7 @@
 		0F87EE252F41634900F591CC /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = System/Library/Frameworks/ReplayKit.framework; sourceTree = SDKROOT; };
 		0F87EE2F2F41634A00F591CC /* BroadcastExtensionSetupUI.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BroadcastExtensionSetupUI.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F87EE312F41634A00F591CC /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
-		0FAA172F2F41490D00B09D45 /* Sotos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sotos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0FAA172F2F41490D00B09D45 /* Pilot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pilot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0FBB17012F41500000B09D45 /* VoiceActivityWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VoiceActivityWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -79,12 +79,12 @@
 			);
 			target = 0F87EE2E2F41634A00F591CC /* BroadcastExtensionSetupUI */;
 		};
-		0FAA173D2F41490E00B09D45 /* Exceptions for "Sotos" folder in "Sotos" target */ = {
+		0FAA173D2F41490E00B09D45 /* Exceptions for "Pilot" folder in "Pilot" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 0FAA172E2F41490D00B09D45 /* Sotos */;
+			target = 0FAA172E2F41490D00B09D45 /* Pilot */;
 		};
 		0FBB170E2F41500000B09D45 /* Exceptions for "VoiceActivityWidget" folder in "VoiceActivityWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -112,12 +112,12 @@
 			path = BroadcastExtensionSetupUI;
 			sourceTree = "<group>";
 		};
-		0FAA17312F41490D00B09D45 /* Sotos */ = {
+		0FAA17312F41490D00B09D45 /* Pilot */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				0FAA173D2F41490E00B09D45 /* Exceptions for "Sotos" folder in "Sotos" target */,
+				0FAA173D2F41490E00B09D45 /* Exceptions for "Pilot" folder in "Pilot" target */,
 			);
-			path = Sotos;
+			path = Pilot;
 			sourceTree = "<group>";
 		};
 		0FBB17022F41500000B09D45 /* VoiceActivityWidget */ = {
@@ -177,7 +177,7 @@
 		0FAA17262F41490D00B09D45 = {
 			isa = PBXGroup;
 			children = (
-				0FAA17312F41490D00B09D45 /* Sotos */,
+				0FAA17312F41490D00B09D45 /* Pilot */,
 				0FBB17022F41500000B09D45 /* VoiceActivityWidget */,
 				0F87EE272F41634900F591CC /* BroadcastExtension */,
 				0F87EE332F41634A00F591CC /* BroadcastExtensionSetupUI */,
@@ -189,7 +189,7 @@
 		0FAA17302F41490D00B09D45 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0FAA172F2F41490D00B09D45 /* Sotos.app */,
+				0FAA172F2F41490D00B09D45 /* Pilot.app */,
 				0FBB17012F41500000B09D45 /* VoiceActivityWidgetExtension.appex */,
 				0F87EE232F41634900F591CC /* BroadcastExtension.appex */,
 				0F87EE2F2F41634A00F591CC /* BroadcastExtensionSetupUI.appex */,
@@ -244,9 +244,9 @@
 			productReference = 0F87EE2F2F41634A00F591CC /* BroadcastExtensionSetupUI.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		0FAA172E2F41490D00B09D45 /* Sotos */ = {
+		0FAA172E2F41490D00B09D45 /* Pilot */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0FAA173A2F41490E00B09D45 /* Build configuration list for PBXNativeTarget "Sotos" */;
+			buildConfigurationList = 0FAA173A2F41490E00B09D45 /* Build configuration list for PBXNativeTarget "Pilot" */;
 			buildPhases = (
 				0FAA172B2F41490D00B09D45 /* Sources */,
 				0FAA172C2F41490D00B09D45 /* Frameworks */,
@@ -261,13 +261,13 @@
 				0F87EE3B2F41634A00F591CC /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				0FAA17312F41490D00B09D45 /* Sotos */,
+				0FAA17312F41490D00B09D45 /* Pilot */,
 			);
-			name = Sotos;
+			name = Pilot;
 			packageProductDependencies = (
 			);
-			productName = Sotos;
-			productReference = 0FAA172F2F41490D00B09D45 /* Sotos.app */;
+			productName = Pilot;
+			productReference = 0FAA172F2F41490D00B09D45 /* Pilot.app */;
 			productType = "com.apple.product-type.application";
 		};
 		0FBB17062F41500000B09D45 /* VoiceActivityWidgetExtension */ = {
@@ -316,7 +316,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 0FAA172A2F41490D00B09D45 /* Build configuration list for PBXProject "Sotos" */;
+			buildConfigurationList = 0FAA172A2F41490D00B09D45 /* Build configuration list for PBXProject "Pilot" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -330,7 +330,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				0FAA172E2F41490D00B09D45 /* Sotos */,
+				0FAA172E2F41490D00B09D45 /* Pilot */,
 				0FBB17062F41500000B09D45 /* VoiceActivityWidgetExtension */,
 				0F87EE222F41634900F591CC /* BroadcastExtension */,
 				0F87EE2E2F41634A00F591CC /* BroadcastExtensionSetupUI */,
@@ -435,7 +435,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos.BroadcastExtensionSetupUI;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Pilot.BroadcastExtensionSetupUI;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -463,7 +463,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos.BroadcastExtensionSetupUI;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Pilot.BroadcastExtensionSetupUI;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -492,7 +492,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos.BroadcastExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Pilot.BroadcastExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -521,7 +521,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos.BroadcastExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Pilot.BroadcastExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -660,16 +660,16 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
-				CODE_SIGN_ENTITLEMENTS = Sotos/Sotos.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Pilot/Pilot.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 83G3TY5SUX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Sotos/Info.plist;
+				INFOPLIST_FILE = Pilot/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Pilot;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Sotos uses the microphone to transcribe your speech during Live Mode.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Sotos uses speech recognition to transcribe your speech during Live Mode.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Pilot uses the microphone to transcribe your speech during Live Mode.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Pilot uses speech recognition to transcribe your speech during Live Mode.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -681,7 +681,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Pilot;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -699,16 +699,16 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
-				CODE_SIGN_ENTITLEMENTS = Sotos/Sotos.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Pilot/Pilot.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 83G3TY5SUX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Sotos/Info.plist;
+				INFOPLIST_FILE = Pilot/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Pilot;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Sotos uses the microphone to transcribe your speech during Live Mode.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Sotos uses speech recognition to transcribe your speech during Live Mode.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Pilot uses the microphone to transcribe your speech during Live Mode.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Pilot uses speech recognition to transcribe your speech during Live Mode.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -720,7 +720,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Pilot;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -749,7 +749,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos.VoiceActivityWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Pilot.VoiceActivityWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -777,7 +777,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Sotos.VoiceActivityWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ethan.Pilot.VoiceActivityWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -809,7 +809,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0FAA172A2F41490D00B09D45 /* Build configuration list for PBXProject "Sotos" */ = {
+		0FAA172A2F41490D00B09D45 /* Build configuration list for PBXProject "Pilot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0FAA17382F41490E00B09D45 /* Debug */,
@@ -818,7 +818,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0FAA173A2F41490E00B09D45 /* Build configuration list for PBXNativeTarget "Sotos" */ = {
+		0FAA173A2F41490E00B09D45 /* Build configuration list for PBXNativeTarget "Pilot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0FAA173B2F41490E00B09D45 /* Debug */,

@@ -12,9 +12,9 @@ import CoreImage
 
 /// Broadcast Upload Extension handler. Receives full-device screen frames and
 /// writes the latest one as a JPEG to the App Group shared container so the
-/// main Sotos app can read it on demand.
+/// main Pilot app can read it on demand.
 class SampleHandler: RPBroadcastSampleHandler {
-    static let appGroupID = "group.arihan.sotos"
+    static let appGroupID = "group.dev.ethan.Pilot"
 
     private let ciContext = CIContext()
     private var frameCount = 0

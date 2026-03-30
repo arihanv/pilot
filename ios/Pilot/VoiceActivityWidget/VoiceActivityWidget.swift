@@ -23,7 +23,7 @@ struct VoiceActivityLiveActivity: Widget {
                         .frame(width: 28, height: 28)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text("Sotos")
+                    Text("Pilot")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.6))
                 }
@@ -64,7 +64,7 @@ struct VoiceActivityLiveActivity: Widget {
                     .foregroundStyle(.cyan)
                     .contentTransition(.symbolEffect(.replace))
 
-                Text("Sotos")
+                Text("Pilot")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
 

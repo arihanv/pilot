@@ -20,21 +20,21 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>dev.arihan.Sotos.shortcuts</string>
+			<string>dev.ethan.Pilot.shortcuts</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>sotos</string>
+				<string>pilot</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Sotos detects your paired ESP32 controller to route commands to the correct device.</string>
+	<string>Pilot detects your paired ESP32 controller to route commands to the correct device.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Sotos listens for your voice to run live commands and conversations.</string>
+	<string>Pilot listens for your voice to run live commands and conversations.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Sotos converts your speech to text so Live Mode can respond.</string>
+	<string>Pilot converts your speech to text so Live Mode can respond.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
@@ -42,5 +42,9 @@
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
 </dict>
 </plist>

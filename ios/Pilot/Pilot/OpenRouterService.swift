@@ -2,8 +2,7 @@ import Foundation
 
 class OpenRouterService {
     private let apiKey: String
-    // private let model = "anthropic/claude-opus-4.6"
-    private let model = "google/gemini-3-flash-preview"
+    var model = "google/gemini-3-flash-preview"
     private let endpoint = URL(string: "https://openrouter.ai/api/v1/chat/completions")!
     private let maxConversationMessages = 40
     private var outboundMessageCount = 0

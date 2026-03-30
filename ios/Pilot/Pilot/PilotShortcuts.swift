@@ -2,20 +2,20 @@ import AppIntents
 import Foundation
 
 private enum ShortcutBridge {
-    static let appGroup = "group.arihan.sotos"
+    static let appGroup = "group.dev.ethan.Pilot"
     static let queueKey = "shortcut_prompt_queue"
 }
 
-struct SendPromptToSotosIntent: AppIntent {
-    static var title: LocalizedStringResource = "Send Prompt to Sotos"
-    static var description = IntentDescription("Sends a text prompt to Sotos so it can run without dictation.")
+struct SendPromptToPilotIntent: AppIntent {
+    static var title: LocalizedStringResource = "Send Prompt to Pilot"
+    static var description = IntentDescription("Sends a text prompt to Pilot so it can run without dictation.")
     static var openAppWhenRun = true
 
     @Parameter(title: "Prompt")
     var prompt: String
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Send \(\.$prompt) to Sotos")
+        Summary("Send \(\.$prompt) to Pilot")
     }
 
     @MainActor
@@ -27,26 +27,26 @@ struct SendPromptToSotosIntent: AppIntent {
         }
 
         var components = URLComponents()
-        components.scheme = "sotos"
+        components.scheme = "pilot"
         components.host = "shortcut"
 
         guard let url = components.url else {
-            throw NSError(domain: "SotosShortcuts", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Could not create Sotos shortcut URL."
+            throw NSError(domain: "PilotShortcuts", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Could not create Pilot shortcut URL."
             ])
         }
 
         return .result(
             opensIntent: OpenURLIntent(url),
-            dialog: IntentDialog("Sent your prompt to Sotos.")
+            dialog: IntentDialog("Sent your prompt to Pilot.")
         )
     }
 }
 
-struct SotosAppShortcuts: AppShortcutsProvider {
+struct PilotAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
-            intent: SendPromptToSotosIntent(),
+            intent: SendPromptToPilotIntent(),
             phrases: [
                 "Ask \(.applicationName)",
                 "Send to \(.applicationName)"
