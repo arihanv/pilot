@@ -11,6 +11,7 @@ import Foundation
 private enum ShortcutBridge {
     static let appGroup = "group.dev.ethan.Pilot"
     static let queueKey = "shortcut_prompt_queue"
+    static let dictateKey = "shortcut_dictate_requested"
 }
 
 @main
@@ -37,15 +38,30 @@ struct PilotApp: App {
         }
     }
 
+    private func processDictateRequest() {
+        guard let defaults = UserDefaults(suiteName: ShortcutBridge.appGroup),
+              defaults.bool(forKey: ShortcutBridge.dictateKey) else { return }
+        defaults.removeObject(forKey: ShortcutBridge.dictateKey)
+        print("[ShortcutBridge] Dictate requested")
+        Task {
+            if !manager.isActive {
+                await manager.startLiveMode()
+            }
+            manager.beginRecording()
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView(manager: manager)
                 .onAppear {
                     processQueuedShortcutPrompts()
+                    processDictateRequest()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         processQueuedShortcutPrompts()
+                        processDictateRequest()
                     }
                 }
                 .onOpenURL { url in

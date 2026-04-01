@@ -106,31 +106,47 @@ BLECharacteristic* inputAbsMouse;
 BLECharacteristic* inputKeyboard;
 BLECharacteristic* inputMedia;
 BLECharacteristic* nusTx;
-bool deviceConnected = false;
+int connectionCount = 0;
+#define deviceConnected (connectionCount > 0)
 bool justConnected = false;
 String bleBuffer = "";
 
+// Command queue — BLE callbacks push here, loop() processes
+#define CMD_QUEUE_SIZE 8
+#define CMD_MAX_LEN 128
+char cmdQueue[CMD_QUEUE_SIZE][CMD_MAX_LEN];
+volatile int cmdHead = 0;
+volatile int cmdTail = 0;
+
+void queueCommand(const String& cmd) {
+  int next = (cmdHead + 1) % CMD_QUEUE_SIZE;
+  if (next == cmdTail) {
+    Serial.println("[WARN] Command queue full, dropping");
+    return;
+  }
+  cmd.toCharArray(cmdQueue[cmdHead], CMD_MAX_LEN);
+  cmdHead = next;
+}
+
 class MyServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    deviceConnected = true;
+  void onConnect(BLEServer* pServer, ble_gap_conn_desc* desc) {
+    connectionCount++;
     justConnected = true;
-    Serial.println("*** Device connected ***");
-    // Keep advertising so the iOS Pilot app can discover us
-    // even when iOS HID system is already connected
+    Serial.printf("*** Connected #%d ***\n", connectionCount);
+    // 4-second supervision timeout — prevents drops from brief radio interference
+    pServer->updateConnParams(desc->conn_handle, 12, 24, 0, 400);
     delay(100);
     pServer->getAdvertising()->start();
-    Serial.println("Continuing to advertise for additional connections");
   }
   void onDisconnect(BLEServer* pServer) {
-    deviceConnected = false;
-    Serial.println("*** Device disconnected ***");
-    delay(100);
+    if (connectionCount > 0) connectionCount--;
+    Serial.printf("*** Disconnected #%d ***\n", connectionCount);
+    delay(500);
     pServer->getAdvertising()->start();
-    Serial.println("Advertising restarted");
   }
 };
 
-// ---- NUS RX Callback (receives commands from iOS app) ----
+// ---- NUS RX Callback ----
 class NUSRxCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) {
     String value = pCharacteristic->getValue().c_str();
@@ -138,16 +154,15 @@ class NUSRxCallbacks : public BLECharacteristicCallbacks {
       char c = value[i];
       if (c == '\n' || c == '\r') {
         if (bleBuffer.length() > 0) {
-          handleCommand(bleBuffer);
+          queueCommand(bleBuffer);
           bleBuffer = "";
         }
       } else {
         bleBuffer += c;
       }
     }
-    // Handle commands without trailing newline
     if (bleBuffer.length() > 0) {
-      handleCommand(bleBuffer);
+      queueCommand(bleBuffer);
       bleBuffer = "";
     }
   }
@@ -180,7 +195,7 @@ void kbSend(uint8_t mod, uint8_t keycode) {
   if (!deviceConnected) return;
   uint8_t r[8] = {mod, 0, keycode, 0,0,0,0,0};
   inputKeyboard->setValue(r, 8); inputKeyboard->notify();
-  delay(mod ? 100 : 20);  // hold longer for modifier combos
+  delay(mod ? 100 : 20);
   uint8_t rel[8] = {0};
   inputKeyboard->setValue(rel, 8); inputKeyboard->notify();
   delay(20);
@@ -235,24 +250,14 @@ void kbType(const char* text) {
   }
 }
 
-// ---- Media / Consumer Control (bitmap style) ----
-// Each bit corresponds to a media key in the HID descriptor
-#define MEDIA_NEXT_TRACK    (1 << 0)   // bit 0
-#define MEDIA_PREV_TRACK    (1 << 1)   // bit 1
-#define MEDIA_STOP          (1 << 2)   // bit 2
-#define MEDIA_PLAY_PAUSE    (1 << 3)   // bit 3
-#define MEDIA_MUTE          (1 << 4)   // bit 4
-#define MEDIA_VOLUME_UP     (1 << 5)   // bit 5
-#define MEDIA_VOLUME_DOWN   (1 << 6)   // bit 6
-#define MEDIA_WWW_HOME      (1 << 7)   // bit 7
-#define MEDIA_MY_COMPUTER   (1 << 8)   // bit 8
-#define MEDIA_CALCULATOR    (1 << 9)   // bit 9
-#define MEDIA_WWW_BOOKMARKS (1 << 10)  // bit 10
-#define MEDIA_WWW_SEARCH    (1 << 11)  // bit 11
-#define MEDIA_WWW_STOP      (1 << 12)  // bit 12
-#define MEDIA_WWW_BACK      (1 << 13)  // bit 13
-#define MEDIA_MEDIA_SELECT  (1 << 14)  // bit 14
-#define MEDIA_MAIL          (1 << 15)  // bit 15
+// ---- Media / Consumer Control ----
+#define MEDIA_NEXT_TRACK    (1 << 0)
+#define MEDIA_PREV_TRACK    (1 << 1)
+#define MEDIA_STOP          (1 << 2)
+#define MEDIA_PLAY_PAUSE    (1 << 3)
+#define MEDIA_MUTE          (1 << 4)
+#define MEDIA_VOLUME_UP     (1 << 5)
+#define MEDIA_VOLUME_DOWN   (1 << 6)
 
 void mediaSend(uint16_t bits) {
   if (!deviceConnected) return;
@@ -279,35 +284,42 @@ void setup() {
   hid->manufacturer()->setValue("ESP32");
   hid->pnp(0x02, 0xe502, 0xa111, 0x0210);
   hid->hidInfo(0x00, 0x02);
+  hid->reportMap((uint8_t*)hidReportDescriptor, sizeof(hidReportDescriptor));
 
+  // Security (matching working pilot-abs-combo)
   BLESecurity* pSecurity = new BLESecurity();
   pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
   pSecurity->setCapability(ESP_IO_CAP_NONE);
   pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
 
-  hid->reportMap((uint8_t*)hidReportDescriptor, sizeof(hidReportDescriptor));
-  hid->startServices();
-  hid->setBatteryLevel(100);
-
-  // ---- Nordic UART Service (NUS) for iOS app commands ----
+  // ---- Create NUS BEFORE starting any services ----
+  // hid->startServices() internally calls pServer->start(), which commits
+  // the GATT database to the BLE stack. Any service created AFTER that
+  // causes GATT handle instability and breaks iOS HID recognition.
+  // So we create NUS first, then start everything together.
   BLEService* nusService = pServer->createService(NUS_SERVICE_UUID);
   nusTx = nusService->createCharacteristic(
     NUS_TX_CHARACTERISTIC,
     BLECharacteristic::PROPERTY_NOTIFY
   );
-  // NimBLE auto-adds 2902 descriptor for notify characteristics
   BLECharacteristic* nusRx = nusService->createCharacteristic(
     NUS_RX_CHARACTERISTIC,
     BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
   );
   nusRx->setCallbacks(new NUSRxCallbacks());
+
+  // Start services individually instead of hid->startServices()
+  // (which would call pServer->start() too early, before NUS is added)
+  hid->deviceInfo()->start();
+  hid->hidService()->start();
+  hid->batteryService()->start();
+  hid->setBatteryLevel(100);
   nusService->start();
 
   BLEAdvertising* pAdvertising = pServer->getAdvertising();
   pAdvertising->setAppearance(HID_KEYBOARD);
   pAdvertising->addServiceUUID(hid->hidService()->getUUID());
-  pAdvertising->addServiceUUID(NUS_SERVICE_UUID);
-  pAdvertising->setScanResponse(true);
+  pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMaxPreferred(0x12);
   pAdvertising->start();
@@ -458,9 +470,16 @@ void loop() {
     }
   }
 
+  // Process queued BLE commands
+  while (cmdTail != cmdHead) {
+    String cmd = String(cmdQueue[cmdTail]);
+    cmdTail = (cmdTail + 1) % CMD_QUEUE_SIZE;
+    handleCommand(cmd);
+  }
+
   if (deviceConnected && justConnected) {
     justConnected = false;
-    Serial.println("READY - device connected");
+    Serial.println("READY");
   }
 
   delay(10);

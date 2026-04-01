@@ -123,7 +123,7 @@ struct SettingsView: View {
                     Task { await manager.refreshBLEDevices() }
                 }
 
-                ActionButton(title: "Connect", icon: "link", style: .primary) {
+                ActionButton(title: "Connect", icon: "link", style: .secondary) {
                     manager.connectSelectedBLEDevice()
                 }
                 .disabled(manager.deviceDetector.selectedDevice == nil || manager.isBLEBusy)

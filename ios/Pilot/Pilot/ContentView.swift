@@ -5,15 +5,20 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showModelPicker = false
     @State private var inputText = ""
+    @State private var suggestions: [Suggestion] = []
+    @State private var loadingSuggestions = false
 
-    private static let models: [(id: String, name: String)] = [
-        ("google/gemini-3-flash-preview", "Gemini 3 Flash"),
-        ("google/gemini-3-pro-preview", "Gemini 3 Pro"),
-        ("google/gemini-3.1-flash-lite-preview", "Gemini 3.1 Flash Lite"),
-        ("anthropic/claude-sonnet-4.6", "Claude Sonnet 4.6"),
-        ("openai/gpt-5.4", "GPT-5.4"),
-        ("openai/gpt-5.4-mini", "GPT-5.4 Mini"),
-        ("deepseek/deepseek-v3.2", "DeepSeek V3.2"),
+    private static let models: [ModelInfo] = [
+        ModelInfo(id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash", provider: "Google", badge: "Fast", badgeColor: .green),
+        ModelInfo(id: "google/gemini-3-pro-preview", name: "Gemini 3 Pro", provider: "Google", badge: "Flagship", badgeColor: .blue),
+        ModelInfo(id: "google/gemini-3.1-flash-lite-preview", name: "Gemini 3.1 Flash Lite", provider: "Google", badge: "Cheap", badgeColor: .mint),
+        ModelInfo(id: "anthropic/claude-sonnet-4.6", name: "Claude Sonnet 4.6", provider: "Anthropic", badge: "CUA", badgeColor: .orange),
+        ModelInfo(id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", provider: "Anthropic", badge: "CUA", badgeColor: .orange),
+        ModelInfo(id: "openai/gpt-5.4", name: "GPT-5.4", provider: "OpenAI", badge: "Vision", badgeColor: .purple),
+        ModelInfo(id: "openai/gpt-5.4-mini", name: "GPT-5.4 Mini", provider: "OpenAI", badge: "Fast", badgeColor: .green),
+        ModelInfo(id: "qwen/qwen3-vl-30b-a3b-thinking", name: "Qwen3 VL 30B", provider: "Qwen", badge: "Vision", badgeColor: .purple),
+        ModelInfo(id: "qwen/qwen3-vl-8b-thinking", name: "Qwen3 VL 8B", provider: "Qwen", badge: "Cheap", badgeColor: .mint),
+        ModelInfo(id: "deepseek/deepseek-v3.2", name: "DeepSeek V3.2", provider: "DeepSeek", badge: nil, badgeColor: .gray),
     ]
 
     private var currentModelName: String {
@@ -63,7 +68,7 @@ struct ContentView: View {
                 models: Self.models,
                 selectedModel: $manager.selectedModel
             )
-            .presentationDetents([.medium])
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -139,40 +144,110 @@ struct ContentView: View {
     private var suggestionChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                suggestionCard(title: "Text back Sarah", subtitle: "\"Running 10 min late\"")
-                suggestionCard(title: "Set a timer", subtitle: "for 25 minutes")
-                suggestionCard(title: "Screenshot my screen", subtitle: "and describe what's on it")
-                suggestionCard(title: "Turn on Do Not Disturb", subtitle: "until tomorrow morning")
+                ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, s in
+                    suggestionCard(s)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .opacity
+                        ))
+                }
             }
             .padding(.horizontal, 16)
         }
         .padding(.bottom, 8)
+        .animation(.spring(duration: 0.5, bounce: 0.3), value: suggestions.count)
+        .task { await loadSuggestions() }
     }
 
-    private func suggestionCard(title: String, subtitle: String) -> some View {
-        Button {
-            inputText = "\(title) \(subtitle)"
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+    private func loadSuggestions() async {
+        guard suggestions.isEmpty, !loadingSuggestions else { return }
+        loadingSuggestions = true
+        print("[Suggestions] Loading...")
+        var apps = await MainActor.run { InstalledAppsProvider.shared.getInstalledApps() }
+        if apps.isEmpty {
+            print("[Suggestions] No installed apps found, skipping generation")
+            loadingSuggestions = false
+            return
+        }
+
+        // Fetch icon URLs from iTunes Search API
+        let iconURLs = await AppIconFetcher.shared.fetchIconURLs(for: apps)
+        for i in apps.indices {
+            apps[i].iconURL = iconURLs[apps[i].name]
+        }
+
+        let generator = SuggestionGenerator(apiKey: Config.openRouterAPIKey)
+        // Pass apps with icon URLs so suggestions inherit them
+        let result = await generator.generateSuggestions(apps: apps)
+        print("[Suggestions] Got \(result.count) suggestions, animating in...")
+        for (i, suggestion) in result.enumerated() {
+            try? await Task.sleep(nanoseconds: UInt64(i) * 120_000_000)
+            await MainActor.run {
+                withAnimation(.spring(duration: 0.4, bounce: 0.3)) {
+                    suggestions.append(suggestion)
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .frame(width: 190, alignment: .leading)
+        }
+        await MainActor.run { loadingSuggestions = false }
+    }
+
+    private func suggestionCard(_ s: Suggestion) -> some View {
+        Button {
+            inputText = "\(s.title) \(s.subtitle)"
+        } label: {
+            HStack(spacing: 10) {
+                // App icon from iTunes Search API
+                AsyncImage(url: s.app.iconURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure:
+                        letterFallback(s.app.name)
+                    case .empty:
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color(.systemGray5))
+                    @unknown default:
+                        letterFallback(s.app.name)
+                    }
+                }
+                .frame(width: 36, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(s.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(s.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(width: 210, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(.systemGray3), lineWidth: 0.5)
+                    .fill(Color(.systemGray6).opacity(0.5))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color(.systemGray4), lineWidth: 0.5)
             )
         }
+    }
+
+    private func letterFallback(_ name: String) -> some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Color(.systemGray5))
+            .overlay {
+                Text(String(name.prefix(1)))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.secondary)
+            }
     }
 
     // MARK: - Messages
@@ -412,41 +487,120 @@ struct TypingIndicator: View {
     }
 }
 
+// MARK: - Model Info
+
+struct ModelInfo: Identifiable {
+    let id: String
+    let name: String
+    let provider: String
+    var badge: String? = nil
+    var badgeColor: Color = .gray
+
+    var providerIcon: String {
+        switch provider {
+        case "Google": return "sparkle"
+        case "Anthropic": return "brain.head.profile"
+        case "OpenAI": return "circle.hexagongrid"
+        case "Qwen": return "cloud"
+        case "DeepSeek": return "magnifyingglass.circle"
+        default: return "cpu"
+        }
+    }
+
+    var providerColor: Color {
+        switch provider {
+        case "Google": return .blue
+        case "Anthropic": return .orange
+        case "OpenAI": return .green
+        case "Qwen": return .indigo
+        case "DeepSeek": return .cyan
+        default: return .gray
+        }
+    }
+}
+
 // MARK: - Model Picker
 
 struct ModelPickerView: View {
-    let models: [(id: String, name: String)]
+    let models: [ModelInfo]
     @Binding var selectedModel: String
     @Environment(\.dismiss) private var dismiss
+
+    private var grouped: [(provider: String, models: [ModelInfo])] {
+        var dict: [String: [ModelInfo]] = [:]
+        for m in models { dict[m.provider, default: []].append(m) }
+        let order = ["Google", "Anthropic", "OpenAI", "Qwen", "DeepSeek"]
+        return order.compactMap { p in
+            guard let list = dict[p] else { return nil }
+            return (provider: p, models: list)
+        }
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(models, id: \.id) { model in
-                    Button {
-                        selectedModel = model.id
-                        dismiss()
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(model.name)
-                                    .font(.body.weight(.medium))
-                                    .foregroundStyle(.primary)
-                                Text(model.id)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                ForEach(grouped, id: \.provider) { group in
+                    Section {
+                        ForEach(group.models) { model in
+                            let isSelected = selectedModel == model.id
+                            Button {
+                                withAnimation(.snappy(duration: 0.2)) {
+                                    selectedModel = model.id
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    // Provider icon
+                                    Image(systemName: model.providerIcon)
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundStyle(model.providerColor)
+                                        .frame(width: 32, height: 32)
+                                        .background(model.providerColor.opacity(0.12))
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                                    // Model name + slug
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 6) {
+                                            Text(model.name)
+                                                .font(.body.weight(.semibold))
+                                                .foregroundStyle(.primary)
+                                            if let badge = model.badge {
+                                                Text(badge)
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundStyle(model.badgeColor)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(model.badgeColor.opacity(0.12))
+                                                    .clipShape(Capsule())
+                                            }
+                                        }
+                                        Text(model.id)
+                                            .font(.caption)
+                                            .foregroundStyle(.tertiary)
+                                    }
+
+                                    Spacer()
+
+                                    // Selection indicator
+                                    if isSelected {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.title3)
+                                            .foregroundStyle(.blue)
+                                    }
+                                }
+                                .padding(.vertical, 4)
                             }
-                            Spacer()
-                            if selectedModel == model.id {
-                                Image(systemName: "checkmark")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(.blue)
-                            }
+                            .listRowBackground(isSelected ? Color.blue.opacity(0.06) : Color.clear)
                         }
+                    } header: {
+                        Text(group.provider)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(nil)
                     }
                 }
             }
-            .navigationTitle("Model")
+            .listStyle(.insetGrouped)
+            .navigationTitle("Select Model")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

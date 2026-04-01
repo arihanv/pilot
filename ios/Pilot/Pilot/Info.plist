@@ -29,9 +29,69 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram</string>
+		<string>twitter</string>
+		<string>snssdk1233</string>
+		<string>snapchat</string>
+		<string>fb</string>
+		<string>reddit</string>
+		<string>barcelona</string>
+		<string>linkedin</string>
+		<string>discord</string>
+		<string>tg</string>
+		<string>whatsapp</string>
+		<string>sgnl</string>
+		<string>bereal</string>
+		<string>spotify</string>
+		<string>youtube</string>
+		<string>nflx</string>
+		<string>twitch</string>
+		<string>soundcloud</string>
+		<string>music</string>
+		<string>podcasts</string>
+		<string>videos</string>
+		<string>slack</string>
+		<string>notion</string>
+		<string>googledocs</string>
+		<string>comgooglemaps</string>
+		<string>zoomus</string>
+		<string>msteams</string>
+		<string>ms-outlook</string>
+		<string>googlegmail</string>
+		<string>googlecalendar</string>
+		<string>com.amazon.mobile.shopping</string>
+		<string>uber</string>
+		<string>ubereats</string>
+		<string>doordash</string>
+		<string>instacart</string>
+		<string>venmo</string>
+		<string>cashme</string>
+		<string>paypal</string>
+		<string>airbnb</string>
+		<string>strava</string>
+		<string>googlechrome</string>
+		<string>firefox</string>
+		<string>x-web-search</string>
+		<string>sms</string>
+		<string>tel</string>
+		<string>calshow</string>
+		<string>mobilenotes</string>
+		<string>x-apple-reminderkit</string>
+		<string>maps</string>
+		<string>camera</string>
+		<string>photos-redirect</string>
+		<string>clock-alarm</string>
+		<string>weather</string>
+		<string>App-prefs</string>
+		<string>shareddocuments</string>
+		<string>shortcuts</string>
+		<string>facetime</string>
+	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Pilot detects your paired ESP32 controller to route commands to the correct device.</string>
-	<key>NSMicrophoneUsageDescription</key>
+<key>NSMicrophoneUsageDescription</key>
 	<string>Pilot listens for your voice to run live commands and conversations.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Pilot converts your speech to text so Live Mode can respond.</string>

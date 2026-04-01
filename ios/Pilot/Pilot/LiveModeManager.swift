@@ -782,13 +782,14 @@ private final class BLECommandBridge: NSObject {
     }
 
     // NUS (Nordic UART Service) for command channel
-    private let nusServiceUUID = CBUUID(string: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
+    static let nusServiceUUID = CBUUID(string: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
     private let rxUUID = CBUUID(string: "6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
     private let txUUID = CBUUID(string: "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
     private let hidServiceUUID = CBUUID(string: "1812")
     private let pilotPrefix = "pilot-"
 
-    private var central: CBCentralManager!
+    // CoreBluetooth
+    private var central: CBCentralManager?
     private var discoveredPeripherals: [UUID: CBPeripheral] = [:]
     private(set) var discoveredDeviceNames: [String] = []
     private(set) var connectedDeviceName: String?
@@ -802,15 +803,28 @@ private final class BLECommandBridge: NSObject {
     private var txCharacteristic: CBCharacteristic?
     private var lastResponseText: String = ""
     private var lastResponseAt: Date = .distantPast
+    private var responseContinuation: CheckedContinuation<String, Never>?
+    private let responseLock = NSLock()
 
-    private var pollTimer: Timer?
     private var reconnectTimer: Timer?
     private var userDisconnected = false
     var nusUnavailableMessage: String?
 
     override init() {
         super.init()
+
+        // Start CoreBluetooth
+        startCentralManager()
+    }
+
+    private func startCentralManager() {
+        guard central == nil else { return }
         central = CBCentralManager(delegate: self, queue: nil)
+    }
+
+    private func stopCentralManager() {
+        central?.stopScan()
+        central = nil
     }
 
     // MARK: - Helpers
@@ -845,53 +859,40 @@ private final class BLECommandBridge: NSObject {
         targetDeviceName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    // MARK: - Polling for system-connected HID devices
+    // MARK: - Reconnect
 
-    private func startPolling() {
-        stopPolling()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            self?.checkForPilotDevices()
-        }
-    }
+    private func reconnectIfPossible() {
+        guard let central, central.state == .poweredOn, !userDisconnected else { return }
+        if isReady { return }
 
-    private func stopPolling() {
-        pollTimer?.invalidate()
-        pollTimer = nil
-    }
-
-    /// Check for pilot devices that are already system-connected (paired via iOS Settings as HID)
-    /// or advertising on BLE. This is the primary discovery mechanism.
-    private func checkForPilotDevices() {
-        guard central.state == .poweredOn else { return }
-
-        // Retrieve peripherals already connected at the system level via ANY known service
-        // HID (1812) is what iOS Settings connects to; NUS is what we use for commands
-        let hidPeripherals = central.retrieveConnectedPeripherals(withServices: [hidServiceUUID])
-        let nusPeripherals = central.retrieveConnectedPeripherals(withServices: [nusServiceUUID])
-
-        // Deduplicate
-        var seen = Set<UUID>()
-        let unique = (hidPeripherals + nusPeripherals).filter { seen.insert($0.identifier).inserted }
-
-        print("[BLE] System check: HID=\(hidPeripherals.count) NUS=\(nusPeripherals.count) unique=\(unique.count) \(unique.map { "\($0.name ?? "nil")" })")
-
-        for p in unique {
-            if isPilotDevice(p) {
+        // 1. Try stored peripheral UUID
+        if let storedID = UserDefaults.standard.string(forKey: "pilot_peripheral_id"),
+           let uuid = UUID(uuidString: storedID) {
+            let peripherals = central.retrievePeripherals(withIdentifiers: [uuid])
+            if let p = peripherals.first {
+                print("[BLE] Retrieved stored peripheral: \(p.name ?? "nil") state=\(p.state.rawValue)")
                 discoveredPeripherals[p.identifier] = p
                 tryConnect(p)
-            } else if p.name == nil || p.name?.isEmpty == true {
-                // Name unknown — try connecting to check if it's our pilot device
-                tryConnect(p)
+                rebuildDeviceNames()
+                return
             }
-            // If name is known but NOT pilot-, skip it
         }
 
-        rebuildDeviceNames()
-
-        if peripheral?.state == .connected && rxCharacteristic != nil {
-            connectionState = .connected
-            notifyStateChanged()
+        // 2. Check system-connected peripherals
+        let connected = central.retrieveConnectedPeripherals(withServices: [Self.nusServiceUUID, hidServiceUUID])
+        for p in connected where isPilotDevice(p) || p.name == nil {
+            print("[BLE] Found system-connected: \(p.name ?? "nil")")
+            discoveredPeripherals[p.identifier] = p
+            tryConnect(p)
+            rebuildDeviceNames()
+            return
         }
+
+        // 3. Start scanning
+        print("[BLE] Starting scan...")
+        connectionState = .scanning
+        notifyStateChanged()
+        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
     }
 
     private func tryConnect(_ p: CBPeripheral) {
@@ -902,51 +903,18 @@ private final class BLECommandBridge: NSObject {
         p.delegate = self
         connectionState = .connecting
         notifyStateChanged()
-        central.connect(p, options: nil)
-        print("[BLE] Attempting connection to \(p.name ?? "unknown") (\(p.identifier.uuidString.prefix(8)))")
+        central?.connect(p, options: nil)
+        print("[BLE] Connecting to \(p.name ?? "unknown") (\(p.identifier.uuidString.prefix(8)))")
     }
-
-    /// Use stored peripheral identifier to reconnect to a previously-known device
-    private func tryRetrieveKnownPeripheral() {
-        guard let storedID = UserDefaults.standard.string(forKey: "pilot_peripheral_id"),
-              let uuid = UUID(uuidString: storedID) else {
-            print("[BLE] No stored peripheral ID")
-            return
-        }
-        let peripherals = central.retrievePeripherals(withIdentifiers: [uuid])
-        if let p = peripherals.first {
-            print("[BLE] Retrieved known peripheral: \(p.name ?? "nil") state=\(p.state.rawValue) (\(p.identifier.uuidString.prefix(8)))")
-            discoveredPeripherals[p.identifier] = p
-            if isPilotDevice(p) || p.name == nil {
-                tryConnect(p)
-            }
-            rebuildDeviceNames()
-        } else {
-            print("[BLE] Stored peripheral \(storedID.prefix(8)) not retrievable")
-        }
-    }
-
-    // MARK: - Reconnect
 
     private func scheduleReconnect() {
         reconnectTimer?.invalidate()
-        reconnectTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
-            guard let self, self.central.state == .poweredOn else {
+        reconnectTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] timer in
+            guard let self, self.central?.state == .poweredOn, !self.userDisconnected else {
                 timer.invalidate()
                 return
             }
-
-            // Check if device reappeared at system level
-            self.checkForPilotDevices()
-
-            // Try reconnecting the last-known peripheral
-            if let p = self.peripheral, p.state == .disconnected {
-                self.connectionState = .connecting
-                self.notifyStateChanged()
-                self.central.connect(p, options: nil)
-            }
-
-            // Stop once connected
+            self.reconnectIfPossible()
             if self.isReady {
                 timer.invalidate()
                 self.reconnectTimer = nil
@@ -957,23 +925,18 @@ private final class BLECommandBridge: NSObject {
     // MARK: - Public API
 
     func refreshDevices(scanSeconds: Double = 3.0) async {
-        guard central.state == .poweredOn else { return }
+        guard let central, central.state == .poweredOn else { return }
         connectionState = .scanning
         notifyStateChanged()
 
-        // Try stored peripheral, then system-connected, then scan
-        tryRetrieveKnownPeripheral()
-        checkForPilotDevices()
+        reconnectIfPossible()
         if isReady { return }
 
-        // Scan broadly — nil finds all advertising devices, didDiscover filters by pilot- prefix
         central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
         try? await Task.sleep(nanoseconds: UInt64(scanSeconds * 1_000_000_000))
         central.stopScan()
 
-        // Final check
-        tryRetrieveKnownPeripheral()
-        checkForPilotDevices()
+        reconnectIfPossible()
 
         connectionState = isReady ? .connected : .idle
         rebuildDeviceNames()
@@ -981,20 +944,16 @@ private final class BLECommandBridge: NSObject {
     }
 
     func connectIfNeeded(timeout: Double = 10.0) async throws {
+        startCentralManager()
         userDisconnected = false
-        guard central.state == .poweredOn else {
+        guard let central, central.state == .poweredOn else {
             throw BLECommandError.bluetoothUnavailable
         }
         if isReady { return }
 
-        // Try stored peripheral, then system-connected
-        tryRetrieveKnownPeripheral()
-        checkForPilotDevices()
+        reconnectIfPossible()
         if isReady { return }
 
-        connectBestPeripheralIfPossible()
-
-        // Scan broadly + poll system-connected devices
         let start = Date()
         connectionState = .scanning
         notifyStateChanged()
@@ -1007,10 +966,6 @@ private final class BLECommandBridge: NSObject {
                 notifyStateChanged()
                 return
             }
-
-            // Re-check system-connected devices every ~1 second
-            checkForPilotDevices()
-
             try? await Task.sleep(nanoseconds: 250_000_000)
         }
 
@@ -1030,7 +985,7 @@ private final class BLECommandBridge: NSObject {
                 notifyStateChanged()
                 return
             }
-            central.cancelPeripheralConnection(p)
+            central?.cancelPeripheralConnection(p)
         }
         try await connectIfNeeded(timeout: timeout)
     }
@@ -1040,7 +995,7 @@ private final class BLECommandBridge: NSObject {
         reconnectTimer?.invalidate()
         reconnectTimer = nil
         if let p = peripheral, p.state == .connected || p.state == .connecting {
-            central.cancelPeripheralConnection(p)
+            central?.cancelPeripheralConnection(p)
         }
         peripheral = nil
         rxCharacteristic = nil
@@ -1050,7 +1005,7 @@ private final class BLECommandBridge: NSObject {
         notifyStateChanged()
     }
 
-    func sendCommand(_ command: String, responseTimeout: Double = 5.0) async throws -> String {
+    func sendCommand(_ command: String, responseTimeout: Double = 0.5) async throws -> String {
         guard isReady, let peripheral, let rx = rxCharacteristic else {
             throw BLECommandError.serviceNotReady
         }
@@ -1059,40 +1014,28 @@ private final class BLECommandBridge: NSObject {
             peripheral.setNotifyValue(true, for: tx)
         }
 
-        let start = Date()
-        let payload = Data(command.utf8)
-        peripheral.writeValue(payload, for: rx, type: .withResponse)
+        peripheral.writeValue(Data(command.utf8), for: rx, type: .withResponse)
 
-        while Date().timeIntervalSince(start) < responseTimeout {
-            if lastResponseAt > start {
-                return lastResponseText
+        let response = await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
+            responseLock.lock()
+            responseContinuation = continuation
+            responseLock.unlock()
+
+            // Timeout fallback
+            DispatchQueue.global().asyncAfter(deadline: .now() + responseTimeout) { [weak self] in
+                guard let self else { return }
+                self.responseLock.lock()
+                let pending = self.responseContinuation
+                self.responseContinuation = nil
+                self.responseLock.unlock()
+                pending?.resume(returning: "")
             }
-            try? await Task.sleep(nanoseconds: 60_000_000)
         }
 
-        throw BLECommandError.responseTimeout
-    }
-
-    private func connectBestPeripheralIfPossible() {
-        if let p = peripheral, p.state == .connecting || p.state == .connected { return }
-
-        let target = targetDeviceName?.lowercased()
-
-        // Prefer exact name match
-        let byName = discoveredPeripherals.values.first { p in
-            guard let name = p.name?.lowercased(), let target else { return false }
-            return name == target
+        if response.isEmpty {
+            throw BLECommandError.responseTimeout
         }
-
-        // Fall back to any pilot device
-        let chosen = byName ?? discoveredPeripherals.values.first(where: { isPilotDevice($0) })
-        guard let chosen else { return }
-
-        peripheral = chosen
-        chosen.delegate = self
-        connectionState = .connecting
-        notifyStateChanged()
-        central.connect(chosen, options: nil)
+        return response
     }
 
     private func rebuildDeviceNames() {
@@ -1100,6 +1043,7 @@ private final class BLECommandBridge: NSObject {
             .filter { isPilotDevice($0) }
             .compactMap(\.name)
         discoveredDeviceNames = Array(Set(names)).sorted()
+
         notifyStateChanged()
     }
 }
@@ -1111,21 +1055,8 @@ extension BLECommandBridge: CBCentralManagerDelegate {
         bluetoothPoweredOn = central.state == .poweredOn
         print("[BLE] Central state: \(central.state.rawValue) poweredOn=\(central.state == .poweredOn)")
         if central.state == .poweredOn {
-            // Try reconnecting to a previously-known pilot device by stored UUID
-            tryRetrieveKnownPeripheral()
-
-            // Check for system-connected pilot devices
-            checkForPilotDevices()
-
-            // Scan for devices — allow duplicates so we keep seeing the device
-            // even after iOS has already reported it once
-            print("[BLE] Starting BLE scan...")
-            central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
-
-            // Start background polling (catches devices paired via iOS Settings)
-            startPolling()
+            reconnectIfPossible()
         } else {
-            stopPolling()
             reconnectTimer?.invalidate()
             reconnectTimer = nil
             rxCharacteristic = nil
@@ -1141,18 +1072,23 @@ extension BLECommandBridge: CBCentralManagerDelegate {
         let name = peripheral.name ?? advName
         guard let name, name.lowercased().hasPrefix(pilotPrefix) else { return }
 
-        print("[BLE] Discovered pilot device: \(name) (\(peripheral.identifier.uuidString.prefix(8))) RSSI=\(RSSI)")
+        print("[BLE] Discovered: \(name) RSSI=\(RSSI)")
         discoveredPeripherals[peripheral.identifier] = peripheral
         rebuildDeviceNames()
-        connectBestPeripheralIfPossible()
+
+        // Auto-connect if not already connected
+        if !isReady && !userDisconnected {
+            central.stopScan()
+            tryConnect(peripheral)
+        }
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        print("[BLE] Connected to \(peripheral.name ?? "unknown") (\(peripheral.identifier.uuidString.prefix(8)))")
+        print("[BLE] Connected to \(peripheral.name ?? "unknown") state=\(peripheral.state.rawValue)")
 
-        // If name is now known and it's NOT a pilot device, disconnect
+        // Reject non-pilot devices
         if let name = peripheral.name, !name.isEmpty, !name.lowercased().hasPrefix(pilotPrefix) {
-            print("[BLE] Not a pilot device, disconnecting: \(name)")
+            print("[BLE] Not a pilot device, disconnecting")
             central.cancelPeripheralConnection(peripheral)
             self.peripheral = nil
             connectionState = .idle
@@ -1160,7 +1096,6 @@ extension BLECommandBridge: CBCentralManagerDelegate {
             return
         }
 
-        // It's a pilot device (or name still unknown — discover services to find out)
         peripheral.delegate = self
         peripheral.discoverServices(nil)
         connectedDeviceName = peripheral.name ?? "pilot device"
@@ -1168,7 +1103,7 @@ extension BLECommandBridge: CBCentralManagerDelegate {
         reconnectTimer?.invalidate()
         reconnectTimer = nil
 
-        // Remember this peripheral for future reconnects
+        // Remember for future reconnects
         UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: "pilot_peripheral_id")
 
         if isPilotDevice(peripheral) {
@@ -1180,13 +1115,14 @@ extension BLECommandBridge: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        print("[BLE] Failed to connect: \(error?.localizedDescription ?? "unknown")")
         if self.peripheral?.identifier == peripheral.identifier {
             rxCharacteristic = nil
             txCharacteristic = nil
             connectedDeviceName = nil
             connectionState = .idle
             notifyStateChanged()
-            scheduleReconnect()
+            if !userDisconnected { scheduleReconnect() }
         }
     }
 
@@ -1197,8 +1133,7 @@ extension BLECommandBridge: CBCentralManagerDelegate {
             connectedDeviceName = nil
             connectionState = .idle
             notifyStateChanged()
-            print("[BLE] Disconnected from \(peripheral.name ?? "unknown"). userDisconnected=\(userDisconnected)")
-            // Only auto-reconnect if this wasn't user-initiated
+            print("[BLE] Disconnected. userDisconnected=\(userDisconnected) error=\(error?.localizedDescription ?? "none")")
             if !userDisconnected && central.state == .poweredOn {
                 scheduleReconnect()
             }
@@ -1210,30 +1145,20 @@ extension BLECommandBridge: CBCentralManagerDelegate {
 
 extension BLECommandBridge: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard error == nil, let services = peripheral.services else {
-            print("[BLE] Service discovery error: \(error?.localizedDescription ?? "no services")")
-            return
-        }
-        print("[BLE] Discovered services: \(services.map(\.uuid.uuidString))")
+        guard error == nil, let services = peripheral.services else { return }
+        print("[BLE] Services: \(services.map(\.uuid.uuidString))")
 
         var foundNUS = false
-        for service in services where service.uuid == nusServiceUUID {
-            print("[BLE] Found NUS service, discovering characteristics...")
+        for service in services where service.uuid == Self.nusServiceUUID {
+            print("[BLE] Found NUS, discovering characteristics...")
             peripheral.discoverCharacteristics([rxUUID, txUUID], for: service)
             foundNUS = true
         }
 
         if !foundNUS {
-            // iOS cached old GATT table without NUS service.
-            // This happens when the device was previously paired with older firmware.
-            // User must "Forget This Device" in iOS Settings to clear the GATT cache.
-            print("[BLE] ⚠️ NUS not found (cached services: \(services.map(\.uuid.uuidString))). Device needs to be forgotten and re-paired.")
-            connectedDeviceName = peripheral.name
-            connectionState = .connected
-            notifyStateChanged()
-            // Don't disconnect — stay connected but flag the issue
+            print("[BLE] NUS not found. Services: \(services.map(\.uuid.uuidString))")
             DispatchQueue.main.async { [weak self] in
-                self?.nusUnavailableMessage = "Forget \"\(peripheral.name ?? "pilot-1")\" in iOS Settings > Bluetooth, then reconnect. iOS cached old services."
+                self?.nusUnavailableMessage = "Forget \"\(peripheral.name ?? "pilot-1")\" in iOS Bluetooth Settings, then tap Scan to re-pair."
                 self?.notifyStateChanged()
             }
         }
@@ -1241,20 +1166,15 @@ extension BLECommandBridge: CBPeripheralDelegate {
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard error == nil, let characteristics = service.characteristics else { return }
-        print("[BLE] Discovered characteristics for \(service.uuid): \(characteristics.map(\.uuid.uuidString))")
         for c in characteristics {
-            if c.uuid == rxUUID {
-                rxCharacteristic = c
-                print("[BLE] Found RX characteristic")
-            }
+            if c.uuid == rxUUID { rxCharacteristic = c }
             if c.uuid == txUUID {
                 txCharacteristic = c
                 peripheral.setNotifyValue(true, for: c)
-                print("[BLE] Found TX characteristic, enabled notifications")
             }
         }
         if rxCharacteristic != nil {
-            print("[BLE] ✅ NUS ready — commands can be sent")
+            print("[BLE] NUS ready")
             nusUnavailableMessage = nil
             connectionState = .connected
             notifyStateChanged()
@@ -1264,7 +1184,14 @@ extension BLECommandBridge: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard error == nil, characteristic.uuid == txUUID else { return }
         guard let data = characteristic.value, !data.isEmpty else { return }
-        lastResponseText = String(decoding: data, as: UTF8.self)
+        let text = String(decoding: data, as: UTF8.self)
+        lastResponseText = text
         lastResponseAt = Date()
+
+        responseLock.lock()
+        let pending = responseContinuation
+        responseContinuation = nil
+        responseLock.unlock()
+        pending?.resume(returning: text)
     }
 }
