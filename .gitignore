@@ -8,3 +8,4 @@ ios/Sotos/Sotos.xcodeproj/project.xcworkspace/xcuserdata/ethangoodhart.xcuserdat
 ios/Sotos/Sotos.xcodeproj/project.pbxproj
 ios/Sotos/BroadcastExtension/BroadcastExtension.entitlements
 ios/Sotos/Sotos/Sotos.entitlements
+ios/Pilot/Pilot/Config.swift

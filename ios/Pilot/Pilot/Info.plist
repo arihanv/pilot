@@ -89,6 +89,8 @@
 		<string>shortcuts</string>
 		<string>facetime</string>
 	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Pilot detects your paired ESP32 controller to route commands to the correct device.</string>
 <key>NSMicrophoneUsageDescription</key>

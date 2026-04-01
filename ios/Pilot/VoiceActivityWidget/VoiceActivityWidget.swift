@@ -16,10 +16,7 @@ struct VoiceActivityLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: context.state.isSpeaking ? "waveform" : "ear.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.cyan)
-                        .contentTransition(.symbolEffect(.replace))
+                    phaseIcon(context.state.phase, size: 16)
                         .frame(width: 28, height: 28)
                 }
                 DynamicIslandExpandedRegion(.center) {
@@ -28,40 +25,69 @@ struct VoiceActivityLiveActivity: Widget {
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(displayText(context.state))
+                    Text(context.state.statusText.isEmpty ? phaseLabel(context.state.phase) : context.state.statusText)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 4)
                 }
             } compactLeading: {
-                Image(systemName: context.state.isSpeaking ? "waveform" : "ear.fill")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.cyan)
-                    .contentTransition(.symbolEffect(.replace))
+                phaseIcon(context.state.phase, size: 12)
             } compactTrailing: {
-                Text(displayText(context.state))
+                Text(context.state.statusText.isEmpty ? phaseLabel(context.state.phase) : context.state.statusText)
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: 120)
             } minimal: {
-                Image(systemName: context.state.isSpeaking ? "waveform" : "ear.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.cyan)
+                phaseIcon(context.state.phase, size: 12)
             }
         }
     }
 
-    private func displayText(_ state: VoiceActivityAttributes.ContentState) -> String {
-        state.agentText.isEmpty ? "Listening…" : state.agentText
+    @ViewBuilder
+    private func phaseIcon(_ phase: VoiceActivityAttributes.ContentState.Phase, size: CGFloat) -> some View {
+        let config = phaseConfig(phase)
+        Image(systemName: config.icon)
+            .font(.system(size: size, weight: .bold))
+            .foregroundStyle(config.color)
+            .symbolEffect(.variableColor.iterative, isActive: phase == .thinking || phase == .executing)
+            .contentTransition(.symbolEffect(.replace))
+    }
+
+    private struct PhaseConfig {
+        let icon: String
+        let color: Color
+    }
+
+    private func phaseConfig(_ phase: VoiceActivityAttributes.ContentState.Phase) -> PhaseConfig {
+        switch phase {
+        case .thinking:  return PhaseConfig(icon: "sparkles", color: .purple)
+        case .executing: return PhaseConfig(icon: "bolt.fill", color: .cyan)
+        case .waiting:   return PhaseConfig(icon: "clock.fill", color: .orange)
+        case .listening: return PhaseConfig(icon: "ear.fill", color: .green)
+        case .speaking:  return PhaseConfig(icon: "waveform", color: .cyan)
+        }
+    }
+
+    private func phaseLabel(_ phase: VoiceActivityAttributes.ContentState.Phase) -> String {
+        switch phase {
+        case .thinking:  return "Thinking…"
+        case .executing: return "Executing…"
+        case .waiting:   return "Waiting…"
+        case .listening: return "Listening…"
+        case .speaking:  return "Speaking…"
+        }
     }
 
     private func lockScreenView(_ state: VoiceActivityAttributes.ContentState) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let config = phaseConfig(state.phase)
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: state.isSpeaking ? "waveform" : "ear.fill")
+                Image(systemName: config.icon)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(config.color)
+                    .symbolEffect(.variableColor.iterative, isActive: state.phase == .thinking || state.phase == .executing)
                     .contentTransition(.symbolEffect(.replace))
 
                 Text("Pilot")
@@ -71,8 +97,9 @@ struct VoiceActivityLiveActivity: Widget {
                 Spacer()
             }
 
-            Text(displayText(state))
+            Text(state.statusText.isEmpty ? phaseLabel(state.phase) : state.statusText)
                 .font(.system(size: 16, weight: .medium, design: .rounded))
+                .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)

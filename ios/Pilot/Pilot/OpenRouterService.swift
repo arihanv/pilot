@@ -16,126 +16,64 @@ class OpenRouterService {
         [
             "type": "function",
             "function": [
-                "name": "get_screenshot",
-                "description": "Capture a screenshot of the phone screen and detect UI elements using vision AI. Provide a specific detection prompt describing what to look for. The screenshot will be annotated with numbered colored bounding boxes. IMPORTANT: This only shows what's currently visible on screen — if the element you need isn't visible, use swipe_screen to scroll first, then take another screenshot.",
+                "name": "execute_actions",
+                "description": """
+                Execute a sequence of actions on the phone. Actions run in order. \
+                ALWAYS use this tool — batch multiple actions when you know the sequence ahead of time. \
+                For example, to open an app: [press_key HOME, press_key SPOTLIGHT, type_text "AppName", press_key ENTER, wait_seconds 1, get_screenshot]. \
+                Use get_screenshot as the last action when you need to see the result. \
+                A sequence can be length 1 if only one action is needed.
+                """,
                 "parameters": [
                     "type": "object",
                     "properties": [
-                        "detect": [
-                            "type": "string",
-                            "description": "What to detect on screen. Be specific: 'app icons', 'the Uber request ride button', 'text input fields', 'all buttons and links'. Sent to a vision model for element detection."
+                        "actions": [
+                            "type": "array",
+                            "description": "Ordered list of actions to execute.",
+                            "items": [
+                                "type": "object",
+                                "properties": [
+                                    "action": [
+                                        "type": "string",
+                                        "enum": ["get_screenshot", "tap_element", "type_text", "swipe_screen", "scroll_screen", "press_key", "wait_seconds"],
+                                        "description": "get_screenshot: capture screen & detect elements (requires 'detect'). tap_element: tap a detected element (requires 'element_id'). type_text: type characters (requires 'text'). swipe_screen: swipe in a direction (requires 'direction': up/down/left/right). scroll_screen: scroll vertically (requires 'direction': up/down, optional 'amount'). press_key: press a key (requires 'key': HOME/ENTER/BACKSPACE/SPOTLIGHT/APPSWITCHER/LOCK/ESC/TAB/SPACE). wait_seconds: pause (requires 'seconds': 0.5-5)."
+                                    ] as [String: Any],
+                                    "detect": [
+                                        "type": "string",
+                                        "description": "For get_screenshot: what to detect. Be specific: 'the send button', 'text input fields', 'all buttons and links'."
+                                    ] as [String: Any],
+                                    "element_id": [
+                                        "type": "integer",
+                                        "description": "For tap_element: element number from the last annotated screenshot."
+                                    ] as [String: Any],
+                                    "text": [
+                                        "type": "string",
+                                        "description": "For type_text: the text to type."
+                                    ] as [String: Any],
+                                    "direction": [
+                                        "type": "string",
+                                        "enum": ["up", "down", "left", "right"],
+                                        "description": "For swipe_screen/scroll_screen."
+                                    ] as [String: Any],
+                                    "key": [
+                                        "type": "string",
+                                        "enum": ["HOME", "ENTER", "BACKSPACE", "SPOTLIGHT", "APPSWITCHER", "LOCK", "ESC", "TAB", "SPACE"],
+                                        "description": "For press_key."
+                                    ] as [String: Any],
+                                    "seconds": [
+                                        "type": "number",
+                                        "description": "For wait_seconds (0.5-5)."
+                                    ] as [String: Any],
+                                    "amount": [
+                                        "type": "integer",
+                                        "description": "For scroll_screen: intensity (default 5)."
+                                    ] as [String: Any]
+                                ] as [String: Any],
+                                "required": ["action"]
+                            ] as [String: Any]
                         ] as [String: Any]
                     ] as [String: Any],
-                    "required": ["detect"]
-                ] as [String: Any]
-            ] as [String: Any]
-        ],
-        [
-            "type": "function",
-            "function": [
-                "name": "tap_element",
-                "description": "Tap on a UI element detected in the last screenshot. Use the element's numbered ID from the annotated screenshot. Always call get_screenshot first to get fresh element IDs. After tapping, use wait_seconds then get_screenshot to verify the tap registered.",
-                "parameters": [
-                    "type": "object",
-                    "properties": [
-                        "element_id": [
-                            "type": "integer",
-                            "description": "The numbered element ID from the annotated screenshot."
-                        ] as [String: Any]
-                    ] as [String: Any],
-                    "required": ["element_id"]
-                ] as [String: Any]
-            ] as [String: Any]
-        ],
-        [
-            "type": "function",
-            "function": [
-                "name": "type_text",
-                "description": "Type text using the keyboard. Text is typed character by character. Make sure a text field is focused/tapped first. If the keyboard isn't visible, tap the text field first.",
-                "parameters": [
-                    "type": "object",
-                    "properties": [
-                        "text": [
-                            "type": "string",
-                            "description": "The text to type."
-                        ] as [String: Any]
-                    ] as [String: Any],
-                    "required": ["text"]
-                ] as [String: Any]
-            ] as [String: Any]
-        ],
-        [
-            "type": "function",
-            "function": [
-                "name": "swipe_screen",
-                "description": "Scroll/swipe on the phone screen. Use this to reveal content that is off-screen. If you can't find a button, link, or element — it's probably below the fold, so swipe up to scroll down and reveal it. Use 'up' to scroll content DOWN (reveal more below), 'down' to scroll content UP (reveal more above), 'left'/'right' for horizontal scrolling (e.g. carousels, pages). You can call this multiple times to scroll further. Always take a screenshot after scrolling to see the new content.",
-                "parameters": [
-                    "type": "object",
-                    "properties": [
-                        "direction": [
-                            "type": "string",
-                            "enum": ["up", "down", "left", "right"],
-                            "description": "Swipe direction. 'up' = scroll content downward (see more below). 'down' = scroll content upward (see more above). 'left' = scroll content rightward. 'right' = scroll content leftward."
-                        ] as [String: Any]
-                    ] as [String: Any],
-                    "required": ["direction"]
-                ] as [String: Any]
-            ] as [String: Any]
-        ],
-        [
-            "type": "function",
-            "function": [
-                "name": "scroll_screen",
-                "description": "Scroll the screen up or down using the scroll wheel. Preferred over swipe_screen for vertical scrolling. Default amount is 5. Positive = scroll down, negative = scroll up.",
-                "parameters": [
-                    "type": "object",
-                    "properties": [
-                        "direction": [
-                            "type": "string",
-                            "enum": ["up", "down"],
-                            "description": "'up' = scroll content upward (reveal above). 'down' = scroll content downward (reveal below)."
-                        ] as [String: Any],
-                        "amount": [
-                            "type": "integer",
-                            "description": "Scroll intensity (default 5). Higher = more scrolling."
-                        ] as [String: Any]
-                    ] as [String: Any],
-                    "required": ["direction"]
-                ] as [String: Any]
-            ] as [String: Any]
-        ],
-        [
-            "type": "function",
-            "function": [
-                "name": "press_key",
-                "description": "Press a special key or iOS system shortcut. Use HOME to go to home screen, SPOTLIGHT to open search (then type_text to search), APPSWITCHER to see open apps, ENTER to confirm/submit, BACKSPACE to delete text, ESC to dismiss/cancel.",
-                "parameters": [
-                    "type": "object",
-                    "properties": [
-                        "key": [
-                            "type": "string",
-                            "enum": ["HOME", "ENTER", "BACKSPACE", "SPOTLIGHT", "APPSWITCHER", "LOCK", "ESC", "TAB", "SPACE"],
-                            "description": "HOME = go to home screen. SPOTLIGHT = open iOS search. APPSWITCHER = show app switcher. ENTER = confirm/submit. BACKSPACE = delete character. ESC = dismiss/go back. TAB = next field. SPACE = space key."
-                        ] as [String: Any]
-                    ] as [String: Any],
-                    "required": ["key"]
-                ] as [String: Any]
-            ] as [String: Any]
-        ],
-        [
-            "type": "function",
-            "function": [
-                "name": "wait_seconds",
-                "description": "Wait for a duration. Use after tapping to let animations complete or pages load before taking the next screenshot.",
-                "parameters": [
-                    "type": "object",
-                    "properties": [
-                        "seconds": [
-                            "type": "number",
-                            "description": "Seconds to wait (0.5 to 5)."
-                        ] as [String: Any]
-                    ] as [String: Any],
-                    "required": ["seconds"]
+                    "required": ["actions"]
                 ] as [String: Any]
             ] as [String: Any]
         ]
@@ -256,36 +194,32 @@ class OpenRouterService {
             "role": "system",
             "content": """
             You are a phone automation agent that controls an iPhone through screen vision and touch actions. \
-            You accomplish tasks by repeatedly taking screenshots with element detection, deciding what to \
-            interact with, and executing actions.
+            You accomplish tasks by executing sequences of actions, taking screenshots to see results, then deciding next steps.
 
-            You will start off in the calling app that spawns you where the user asks a question. the first thing you need to do
-            is to leave this app and go to the home screen. then complete the user's task.
+            You ALWAYS use the execute_actions tool with a list of actions. Batch multiple actions into one call \
+            when you know the sequence ahead of time — this is faster than one action at a time.
+
+            OPENING AN APP (do this first for most tasks):
+            [press_key HOME, press_key SPOTLIGHT, type_text "AppName", press_key ENTER, wait_seconds 1, get_screenshot "..."]
+            This is the standard sequence: go home, open Spotlight search, type the app name, press enter to launch, wait, then screenshot.
 
             WORKFLOW:
-            1. Call get_screenshot with a specific detection prompt to see the current screen
+            1. Execute a sequence of actions ending with get_screenshot to see the result
             2. Examine the annotated screenshot — elements have numbered colored bounding boxes
-            3. Call tap_element with the element number, or use type_text, swipe_screen, press_key
-            4. Use wait_seconds(1) after actions for animations/loading
-            5. Call get_screenshot again to verify the result and see the new state
-            6. Repeat until the task is complete
+            3. Execute the next sequence (tap, type, scroll, etc.) ending with get_screenshot
+            4. Repeat until the task is complete
 
-            SCROLLING — VERY IMPORTANT:
-            - You can ONLY see what's currently visible on screen. Content may extend below or above the viewport.
-            - If you can't find a button, link, or element you expect to exist, SCROLL to reveal it.
-            - PREFER scroll_screen over swipe_screen for vertical scrolling — it's more reliable.
-            - Use scroll_screen(direction: "down") to scroll DOWN and reveal content below the fold.
-            - Use scroll_screen(direction: "up") to scroll UP and reveal content above.
+            SCROLLING:
+            - You can ONLY see what's currently visible. Content may extend below or above.
+            - PREFER scroll_screen over swipe_screen for vertical scrolling.
             - Use swipe_screen only for horizontal scrolling (left/right).
-            - After scrolling, ALWAYS take a new get_screenshot to see the newly visible content.
-            - You may need to scroll multiple times to find what you're looking for.
-            - Common cases: confirmation buttons at bottom of forms, items in long lists, settings deeper in a page.
+            - If you can't find an element, scroll to reveal it, then screenshot.
 
             RULES:
-            - Write SPECIFIC detection prompts (e.g. "the Uber app icon" not just "icons")
+            - Batch actions you know ahead of time into one execute_actions call
+            - End your sequence with get_screenshot when you need to see the screen state
+            - Write SPECIFIC detection prompts (e.g. "the send button" not just "buttons")
             - If no elements detected, try a different/broader detection prompt
-            - If the element you need isn't visible, SCROLL before giving up
-            - To open an app: press_key HOME → press_key SPOTLIGHT → type_text "AppName" → press_key ENTER
             - After completing the task, briefly tell the user what you accomplished (1-2 sentences)
             - If stuck after 3 attempts, try scrolling or a different approach before asking for help
             """

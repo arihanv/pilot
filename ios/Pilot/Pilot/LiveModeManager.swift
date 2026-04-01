@@ -146,7 +146,7 @@ class LiveModeManager {
             syncBLEDeviceState()
 
             for (index, command) in commands.enumerated() {
-                let response = try await bleBridge.sendCommand(command, responseTimeout: 5)
+                let response = try await bleBridge.sendCommand(command)
                 print("[Phone] BLE \(command) -> \(response)")
 
                 let isLast = index == commands.count - 1
@@ -189,7 +189,7 @@ class LiveModeManager {
                 bleBridge.setTargetDeviceName(deviceDetector.selectedDevice)
                 try await bleBridge.connectIfNeeded(timeout: 10)
                 syncBLEDeviceState()
-                let response = try await bleBridge.sendCommand("STATUS", responseTimeout: 5)
+                let response = try await bleBridge.sendCommand("STATUS")
                 lastResponse = "ESP32 STATUS: \(response)"
                 errorMessage = nil
             } catch {
@@ -254,7 +254,7 @@ class LiveModeManager {
                 case .wait(let seconds):
                     try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
                 case .command(let command):
-                    let response = try await bleBridge.sendCommand(command, responseTimeout: 5)
+                    let response = try await bleBridge.sendCommand(command)
                     print("[Phone] BLE \(command) -> \(response)")
                     lastResponse = "\(command) -> \(response)"
                 }
@@ -385,6 +385,7 @@ class LiveModeManager {
         currentTranscription = ""
         lastElements = []
         lastScreenshotData = nil
+        PilotActivityManager.shared.end()
     }
 
     /// Main CUA loop: sends user message, then keeps executing tool calls until
@@ -393,6 +394,9 @@ class LiveModeManager {
         let loopStart = Date()
         var lastCheckpoint = loopStart
         print("[CUA] === Starting CUA loop (reqId=\(myId)) for: \"\(userMessage)\" ===")
+
+        PilotActivityManager.shared.start(phase: .thinking, status: "Thinking…")
+
         do {
             cuaStep = 0
             var response = try await openRouter.sendMessage(userMessage)
@@ -400,12 +404,16 @@ class LiveModeManager {
             lastCheckpoint = Date()
 
             while true {
-                guard self.requestId == myId else { return }
+                guard self.requestId == myId else {
+                    PilotActivityManager.shared.end()
+                    return
+                }
 
                 switch response {
                 case .text(let text):
                     cuaStatus = ""
                     print("[Timing][CUA] Final text returned after \(elapsed(lastCheckpoint)) (total \(elapsed(loopStart)))")
+                    PilotActivityManager.shared.end()
                     showResponse(text)
                     return
 
@@ -413,11 +421,16 @@ class LiveModeManager {
                     cuaStep += 1
                     print("[CUA] Step \(cuaStep): \(name) args=\(args)")
                     print("[Timing][CUA] Step \(cuaStep) started after \(elapsed(lastCheckpoint)) (total \(elapsed(loopStart)))")
-                    cuaStatus = statusLabel(tool: name, args: args)
+                    let status = statusLabel(tool: name, args: args)
+                    cuaStatus = status
+                    PilotActivityManager.shared.update(phase: .executing, status: status)
 
                     let toolStart = Date()
                     let result = await executeTool(name: name, args: args)
-                    guard self.requestId == myId else { return }
+                    guard self.requestId == myId else {
+                        PilotActivityManager.shared.end()
+                        return
+                    }
                     print("[Timing][CUA] Step \(cuaStep) tool '\(name)' executed in \(elapsed(toolStart))")
 
                     switch result {
@@ -426,6 +439,8 @@ class LiveModeManager {
                     case .textWithImage(let t, let img):
                         print("[CUA] Tool result (image, \(img.count) b64 chars): \(t.prefix(120))")
                     }
+
+                    PilotActivityManager.shared.update(phase: .thinking, status: "Thinking…")
 
                     response = try await openRouter.sendToolResult(
                         toolCallId: id,
@@ -438,6 +453,7 @@ class LiveModeManager {
         } catch {
             guard self.requestId == myId else { return }
             cuaStatus = ""
+            PilotActivityManager.shared.end()
             showError(error)
         }
     }
@@ -446,15 +462,64 @@ class LiveModeManager {
 
     private func executeTool(name: String, args: [String: Any]) async -> OpenRouterService.ToolResultContent {
         switch name {
-        case "get_screenshot":   return await toolGetScreenshot(args)
-        case "tap_element":      return await toolTapElement(args)
-        case "type_text":        return await toolTypeText(args)
-        case "swipe_screen":     return await toolSwipeScreen(args)
-        case "scroll_screen":    return await toolScrollScreen(args)
-        case "press_key":        return await toolPressKey(args)
-        case "wait_seconds":     return await toolWait(args)
+        case "execute_actions":  return await toolExecuteActions(args)
         default:                 return .text("Unknown tool: \(name)")
         }
+    }
+
+    // MARK: execute_actions
+
+    private func toolExecuteActions(_ args: [String: Any]) async -> OpenRouterService.ToolResultContent {
+        guard let actions = args["actions"] as? [[String: Any]], !actions.isEmpty else {
+            return .text("ERROR: actions array is required and must not be empty")
+        }
+
+        var results: [String] = []
+        var lastImageBase64: String? = nil
+
+        for (i, action) in actions.enumerated() {
+            guard let actionType = action["action"] as? String else {
+                results.append("[\(i+1)] ERROR: missing action type")
+                continue
+            }
+
+            let actionStatus = statusLabel(tool: actionType, args: action)
+            cuaStatus = actionStatus
+            let activityPhase: VoiceActivityAttributes.ContentState.Phase = actionType == "wait_seconds" ? .waiting : .executing
+            PilotActivityManager.shared.update(phase: activityPhase, status: actionStatus)
+
+            let result: OpenRouterService.ToolResultContent
+            switch actionType {
+            case "get_screenshot":   result = await toolGetScreenshot(action)
+            case "tap_element":      result = await toolTapElement(action)
+            case "type_text":        result = await toolTypeText(action)
+            case "swipe_screen":     result = await toolSwipeScreen(action)
+            case "scroll_screen":    result = await toolScrollScreen(action)
+            case "press_key":        result = await toolPressKey(action)
+            case "wait_seconds":     result = await toolWait(action)
+            default:                 result = .text("Unknown action: \(actionType)")
+            }
+
+            switch result {
+            case .text(let t):
+                results.append("[\(i+1)] \(actionType): \(t)")
+            case .textWithImage(let t, let img):
+                results.append("[\(i+1)] \(actionType): \(t)")
+                lastImageBase64 = img
+            }
+
+            // Small delay between actions (except after wait_seconds which handles its own)
+            if actionType != "wait_seconds" && i < actions.count - 1 {
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+            }
+        }
+
+        let combinedText = results.joined(separator: "\n")
+
+        if let imageBase64 = lastImageBase64 {
+            return .textWithImage(text: combinedText, imageBase64: imageBase64)
+        }
+        return .text(combinedText)
     }
 
     // MARK: get_screenshot
@@ -664,6 +729,13 @@ class LiveModeManager {
 
     private func statusLabel(tool: String, args: [String: Any]) -> String {
         switch tool {
+        case "execute_actions":
+            if let actions = args["actions"] as? [[String: Any]], let first = actions.first {
+                let actionType = first["action"] as? String ?? "?"
+                let count = actions.count
+                return count > 1 ? "Running \(count) actions (\(actionType)...)" : statusLabel(tool: actionType, args: first)
+            }
+            return "Running actions..."
         case "get_screenshot":
             let p = args["detect"] as? String ?? ""
             return "Analyzing screen: \(p.prefix(40))"
@@ -675,6 +747,8 @@ class LiveModeManager {
             return "Typing: \(t)"
         case "swipe_screen":
             return "Swiping \(args["direction"] as? String ?? "")"
+        case "scroll_screen":
+            return "Scrolling \(args["direction"] as? String ?? "")"
         case "press_key":
             return "Pressing \(args["key"] as? String ?? "")"
         case "wait_seconds":
@@ -690,6 +764,7 @@ class LiveModeManager {
         speechManager.stopAudio()
         speechManager.pauseListening()
         isSpeaking = true
+        PilotActivityManager.shared.start(phase: .speaking, status: String(text.prefix(60)))
 
         Task {
             do {
@@ -698,12 +773,14 @@ class LiveModeManager {
                 speechManager.playAudio(data: audioData) { [weak self] in
                     Task { @MainActor in
                         self?.isSpeaking = false
+                        PilotActivityManager.shared.end()
                         // PTT: don't resume mic — wait for next button press
                     }
                 }
             } catch {
                 print("[TTS] Error: \(error)")
                 self.isSpeaking = false
+                PilotActivityManager.shared.end()
             }
         }
     }
