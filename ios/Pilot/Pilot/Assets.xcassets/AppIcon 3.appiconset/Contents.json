@@ -1,0 +1,38 @@
+{
+  "images" : [
+    {
+      "filename" : "computer-mouse-pointer-cursor-computer-icons-mouse-cursor-611132c4e575d276c0c4ef5b4fdaf394.png",
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "computer-mouse-pointer-cursor-computer-icons-mouse-cursor-611132c4e575d276c0c4ef5b4fdaf394 1.png",
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "tinted"
+        }
+      ],
+      "filename" : "computer-mouse-pointer-cursor-computer-icons-mouse-cursor-611132c4e575d276c0c4ef5b4fdaf394 2.png",
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
