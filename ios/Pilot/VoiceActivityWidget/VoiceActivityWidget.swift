@@ -51,7 +51,7 @@ struct VoiceActivityLiveActivity: Widget {
         Image(systemName: config.icon)
             .font(.system(size: size, weight: .bold))
             .foregroundStyle(config.color)
-            .symbolEffect(.variableColor.iterative, isActive: phase == .thinking || phase == .executing)
+            .symbolEffect(.variableColor.iterative, isActive: phase == .thinking || phase == .executing || phase == .waiting || phase == .detecting)
             .contentTransition(.symbolEffect(.replace))
     }
 
@@ -62,11 +62,11 @@ struct VoiceActivityLiveActivity: Widget {
 
     private func phaseConfig(_ phase: VoiceActivityAttributes.ContentState.Phase) -> PhaseConfig {
         switch phase {
-        case .thinking:  return PhaseConfig(icon: "sparkles", color: .purple)
-        case .executing: return PhaseConfig(icon: "bolt.fill", color: .cyan)
-        case .waiting:   return PhaseConfig(icon: "clock.fill", color: .orange)
-        case .listening: return PhaseConfig(icon: "ear.fill", color: .green)
-        case .speaking:  return PhaseConfig(icon: "waveform", color: .cyan)
+        case .thinking:  return PhaseConfig(icon: "sparkles", color: .white)
+        case .executing, .waiting: return PhaseConfig(icon: "bolt.fill", color: .white)
+        case .detecting: return PhaseConfig(icon: "moon.fill", color: .white)
+        case .listening: return PhaseConfig(icon: "ear.fill", color: .white)
+        case .speaking:  return PhaseConfig(icon: "waveform", color: .white)
         }
     }
 
@@ -74,6 +74,7 @@ struct VoiceActivityLiveActivity: Widget {
         switch phase {
         case .thinking:  return "Thinking…"
         case .executing: return "Executing…"
+        case .detecting: return "Detecting…"
         case .waiting:   return "Waiting…"
         case .listening: return "Listening…"
         case .speaking:  return "Speaking…"

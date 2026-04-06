@@ -388,13 +388,6 @@ struct ContentView: View {
                     .font(.body)
                     .padding(.leading, 16)
                     .padding(.vertical, 8)
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Done") { dismissKeyboard() }
-                                .fontWeight(.medium)
-                        }
-                    }
 
                 // Mic button (push-to-talk)
                 if manager.isActive && inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -406,10 +399,7 @@ struct ContentView: View {
                     .padding(.trailing, 8)
             }
             .frame(minHeight: 48)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color(.systemGray6))
-            )
+            .glassEffect(.regular, in: .capsule)
         }
         .padding(.leading, 12)
         .padding(.trailing, 12)

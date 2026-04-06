@@ -156,7 +156,9 @@ class LiveModeManager {
             }
         } catch {
             print("[Phone] Error after \(elapsed(sendStart)): \(error)")
-            errorMessage = "BLE command failed: \(error.localizedDescription)"
+            if (error as? BLECommandError) != .responseTimeout {
+                errorMessage = "BLE command failed: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -261,7 +263,9 @@ class LiveModeManager {
             }
             errorMessage = nil
         } catch {
-            errorMessage = "BLE command failed: \(error.localizedDescription)"
+            if (error as? BLECommandError) != .responseTimeout {
+                errorMessage = "BLE command failed: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -545,6 +549,7 @@ class LiveModeManager {
 
         do {
             let detectStart = Date()
+            PilotActivityManager.shared.update(phase: .detecting, status: "Detecting: \(String(detectPrompt.prefix(40)))")
             let elements = try await moondream.detect(imageData: screenshotData, prompt: detectPrompt)
             print("[Timing][CUA] Moondream detect in \(elapsed(detectStart))")
             lastElements = elements
@@ -910,6 +915,11 @@ private final class BLECommandBridge: NSObject {
         peripheral.name?.lowercased().hasPrefix(pilotPrefix) == true
     }
 
+    private func matchesTarget(_ peripheral: CBPeripheral) -> Bool {
+        guard let target = targetDeviceName, !target.isEmpty else { return true }
+        return peripheral.name?.caseInsensitiveCompare(target) == .orderedSame
+    }
+
     private func notifyStateChanged() {
         onStateChanged?()
     }
@@ -942,22 +952,27 @@ private final class BLECommandBridge: NSObject {
         guard let central, central.state == .poweredOn, !userDisconnected else { return }
         if isReady { return }
 
-        // 1. Try stored peripheral UUID
+        // 1. Try stored peripheral UUID (only if it matches target device)
         if let storedID = UserDefaults.standard.string(forKey: "pilot_peripheral_id"),
            let uuid = UUID(uuidString: storedID) {
             let peripherals = central.retrievePeripherals(withIdentifiers: [uuid])
             if let p = peripherals.first {
                 print("[BLE] Retrieved stored peripheral: \(p.name ?? "nil") state=\(p.state.rawValue)")
                 discoveredPeripherals[p.identifier] = p
-                tryConnect(p)
+                if matchesTarget(p) {
+                    tryConnect(p)
+                    rebuildDeviceNames()
+                    return
+                } else {
+                    print("[BLE] Stored peripheral doesn't match target '\(targetDeviceName ?? "any")', skipping")
+                }
                 rebuildDeviceNames()
-                return
             }
         }
 
-        // 2. Check system-connected peripherals
+        // 2. Check system-connected peripherals (prefer target device)
         let connected = central.retrieveConnectedPeripherals(withServices: [Self.nusServiceUUID, hidServiceUUID])
-        for p in connected where isPilotDevice(p) || p.name == nil {
+        for p in connected where (isPilotDevice(p) || p.name == nil) && matchesTarget(p) {
             print("[BLE] Found system-connected: \(p.name ?? "nil")")
             discoveredPeripherals[p.identifier] = p
             tryConnect(p)
@@ -1153,8 +1168,8 @@ extension BLECommandBridge: CBCentralManagerDelegate {
         discoveredPeripherals[peripheral.identifier] = peripheral
         rebuildDeviceNames()
 
-        // Auto-connect if not already connected
-        if !isReady && !userDisconnected {
+        // Auto-connect if not already connected and matches target
+        if !isReady && !userDisconnected && matchesTarget(peripheral) {
             central.stopScan()
             tryConnect(peripheral)
         }

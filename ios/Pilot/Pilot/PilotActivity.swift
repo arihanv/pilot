@@ -12,6 +12,7 @@ struct VoiceActivityAttributes: ActivityAttributes {
         enum Phase: String, Codable, Hashable {
             case thinking
             case executing
+            case detecting
             case waiting
             case listening
             case speaking

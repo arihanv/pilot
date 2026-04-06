@@ -10,6 +10,7 @@ struct VoiceActivityAttributes: ActivityAttributes {
         enum Phase: String, Codable, Hashable {
             case thinking   // LLM is deciding next action
             case executing  // running actions on phone
+            case detecting  // Moondream vision detection
             case waiting    // explicit wait
             case listening  // PTT recording
             case speaking   // TTS playback
