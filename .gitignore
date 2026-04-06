@@ -1,11 +1,2 @@
-ios/Sotos/VoiceAgent/VoiceAgent.entitlements
-ios/Sotos/BroadcastExtension/BroadcastExtension.entitlements
-ios/Sotos/VoiceAgent.xcodeproj/project.pbxproj
-.env
-ios/Sotos/BroadcastExtension/BroadcastExtension.entitlements
-ios/Sotos/Sotos/Sotos.entitlements
-ios/Sotos/Sotos.xcodeproj/project.xcworkspace/xcuserdata/ethangoodhart.xcuserdatad/UserInterfaceState.xcuserstate
-ios/Sotos/Sotos.xcodeproj/project.pbxproj
-ios/Sotos/BroadcastExtension/BroadcastExtension.entitlements
-ios/Sotos/Sotos/Sotos.entitlements
-ios/Pilot/Pilot/Config.swift
+esp32/build/
+.DS_Store
