@@ -1,2 +1,3 @@
 esp32/build/
 .DS_Store
+ios/Pilot/Pilot/Config.swift
